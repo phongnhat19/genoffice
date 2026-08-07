@@ -174,7 +174,7 @@ export interface DesktopApi {
   getAiSettings(): Promise<AiSettings>
   setAiSettings(settings: AiSettings): Promise<void>
   aiSelectConnection(id: string, model: string): Promise<AiSettings>
-  aiSaveApiKey(key: string, model?: string): Promise<AiSettings>
+  aiSaveApiKey(id: string, key: string, model?: string): Promise<AiSettings>
   aiStartOAuth(): Promise<void>
   aiOAuthStatus(): Promise<AiSettings>
   aiDisconnectConnection(id: string): Promise<AiSettings>

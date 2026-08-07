@@ -55,11 +55,7 @@ import {
   type AiStreamChunk,
 } from '@genoffice/ai-provider'
 import { csvToXlsxBuffer, decodeCsvBuffer } from '../gateway/csv-import'
-import {
-  setGskProxyUrl,
-  webSearch,
-  imageSearch,
-} from '@genoffice/ai-search'
+import { setGskProxyUrl, webSearch, imageSearch } from '@genoffice/ai-search'
 import { parseFileToText } from '@genoffice/file-parse'
 import type { CellEdit, SheetStructuralOps } from '../gateway/xlsx-gateway'
 import { readArchiveEntryText, saveWorkbookViaSidecar } from '../gateway/xlsx-package-io'
@@ -2022,15 +2018,23 @@ export function registerSheetsAiIpc(): void {
     sessionFor(event)
     const settings = aiSettingsInputSchema.parse(input)
     return providerSettings.select(
-      'selectedConnectionId' in settings ? settings.selectedConnectionId ?? 'openai-oauth' : 'openai-oauth',
+      'selectedConnectionId' in settings
+        ? (settings.selectedConnectionId ?? 'openai-oauth')
+        : 'openai-oauth',
       settings.providers?.[settings.provider]?.model ?? 'gpt-5.6-sol',
     )
   })
-  ipcMain.handle('ai:select-connection', (_event, id: unknown, model: unknown) => providerSettings.select(id, model))
-  ipcMain.handle('ai:save-api-key', (_event, key: unknown, model?: unknown) => providerSettings.saveApiKey(key, model))
+  ipcMain.handle('ai:select-connection', (_event, id: unknown, model: unknown) =>
+    providerSettings.select(id, model),
+  )
+  ipcMain.handle('ai:save-api-key', (_event, id: unknown, key: unknown, model?: unknown) =>
+    providerSettings.saveApiKey(id, key, model),
+  )
   ipcMain.handle('ai:oauth-start', () => providerSettings.startOAuth())
   ipcMain.handle('ai:oauth-status', () => providerSettings.oauthStatus())
-  ipcMain.handle('ai:disconnect-connection', (_event, id: unknown) => providerSettings.disconnect(id))
+  ipcMain.handle('ai:disconnect-connection', (_event, id: unknown) =>
+    providerSettings.disconnect(id),
+  )
 
   ipcMain.handle(IPC_CHANNELS.aiChat, async (event, input: unknown) => {
     sessionFor(event)

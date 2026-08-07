@@ -9,11 +9,7 @@
  */
 import type { RenderSlide } from '@genoffice/pptx-render'
 import type { SlideComment, SectionInfo } from '@genoffice/pptx-engine'
-import type {
-  AiSettings,
-  AiStreamChunk,
-  AiStreamRequest,
-} from '@genoffice/ai-provider'
+import type { AiSettings, AiStreamChunk, AiStreamRequest } from '@genoffice/ai-provider'
 
 export type { SlideComment, SectionInfo } from '@genoffice/pptx-engine'
 
@@ -1282,7 +1278,7 @@ export interface SlidesApi {
   getAiSettings: () => Promise<AiSettings>
   setAiSettings: (settings: AiSettings) => Promise<void>
   aiSelectConnection: (id: string, model: string) => Promise<AiSettings>
-  aiSaveApiKey: (key: string, model?: string) => Promise<AiSettings>
+  aiSaveApiKey: (id: string, key: string, model?: string) => Promise<AiSettings>
   aiStartOAuth: () => Promise<void>
   aiOAuthStatus: () => Promise<AiSettings>
   aiDisconnectConnection: (id: string) => Promise<AiSettings>

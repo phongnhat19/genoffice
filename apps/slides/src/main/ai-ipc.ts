@@ -16,10 +16,7 @@ import {
   type AiStreamRequest,
 } from '@genoffice/ai-provider'
 import { AiProviderSettingsService, fetchRemoteImage } from '@genoffice/electron-utils'
-import {
-  webSearch,
-  imageSearch,
-} from '@genoffice/ai-search'
+import { webSearch, imageSearch } from '@genoffice/ai-search'
 import { addPicture } from '@genoffice/pptx-engine'
 import { EMU_PER_PX_96 } from '@genoffice/pptx-render'
 import { tm } from './i18n-main'
@@ -54,13 +51,22 @@ export function registerAiIpc(): void {
   ipcMain.handle('ai:get-settings', () => providerSettings.view())
 
   ipcMain.handle('ai:set-settings', async (_event, settings: AiSettings) =>
-    providerSettings.select(settings.selectedConnectionId ?? 'openai-oauth', settings.providers?.[settings.provider]?.model ?? 'gpt-5.6-sol'),
+    providerSettings.select(
+      settings.selectedConnectionId ?? 'openai-oauth',
+      settings.providers?.[settings.provider]?.model ?? 'gpt-5.6-sol',
+    ),
   )
-  ipcMain.handle('ai:select-connection', (_event, id: unknown, model: unknown) => providerSettings.select(id, model))
-  ipcMain.handle('ai:save-api-key', (_event, key: unknown, model?: unknown) => providerSettings.saveApiKey(key, model))
+  ipcMain.handle('ai:select-connection', (_event, id: unknown, model: unknown) =>
+    providerSettings.select(id, model),
+  )
+  ipcMain.handle('ai:save-api-key', (_event, id: unknown, key: unknown, model?: unknown) =>
+    providerSettings.saveApiKey(id, key, model),
+  )
   ipcMain.handle('ai:oauth-start', () => providerSettings.startOAuth())
   ipcMain.handle('ai:oauth-status', () => providerSettings.oauthStatus())
-  ipcMain.handle('ai:disconnect-connection', (_event, id: unknown) => providerSettings.disconnect(id))
+  ipcMain.handle('ai:disconnect-connection', (_event, id: unknown) =>
+    providerSettings.disconnect(id),
+  )
 
   ipcMain.handle('ai:stream', async (event, request: AiStreamRequest) => {
     const { requestId, system, messages } = request
@@ -95,16 +101,22 @@ export function registerAiIpc(): void {
       send({ requestId, type: 'ping' })
     }
     try {
-      const stream = () => streamForProvider(provider, config!, system, messages, tools, maxTokens, {
-        signal: controller.signal,
-        onDelta: (text) => send({ requestId, type: 'delta', text }),
-        onToolCall: (toolCall) => send({ requestId, type: 'tool-call', toolCall }),
-        onActivity: ping,
-      })
+      const stream = () =>
+        streamForProvider(provider, config!, system, messages, tools, maxTokens, {
+          signal: controller.signal,
+          onDelta: (text) => send({ requestId, type: 'delta', text }),
+          onToolCall: (toolCall) => send({ requestId, type: 'tool-call', toolCall }),
+          onActivity: ping,
+        })
       try {
         await stream()
       } catch (err) {
-        if (provider === 'openai' && config.authType === 'oauth' && /Codex HTTP 401|Codex HTTP 403/.test(String(err)) && await providerSettings.refreshSelectedOAuth()) {
+        if (
+          provider === 'openai' &&
+          config.authType === 'oauth' &&
+          /Codex HTTP 401|Codex HTTP 403/.test(String(err)) &&
+          (await providerSettings.refreshSelectedOAuth())
+        ) {
           const retried = await providerSettings.config()
           if (!retried.config) throw err
           config = retried.config

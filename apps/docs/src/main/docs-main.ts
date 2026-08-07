@@ -10,7 +10,16 @@ import {
 } from 'node:fs'
 import { copyFile, mkdir, readFile, readdir, stat, unlink } from 'node:fs/promises'
 import { basename, join } from 'node:path'
-import { BrowserWindow, Menu, WebContentsView, app, dialog, ipcMain, safeStorage, shell } from 'electron'
+import {
+  BrowserWindow,
+  Menu,
+  WebContentsView,
+  app,
+  dialog,
+  ipcMain,
+  safeStorage,
+  shell,
+} from 'electron'
 import {
   appMenuLabels,
   contextMenuLabels,
@@ -41,10 +50,7 @@ import {
   type AiStreamChunk,
   type AiStreamRequest,
 } from '@genoffice/ai-provider'
-import {
-  webSearch,
-  imageSearch,
-} from '@genoffice/ai-search'
+import { webSearch, imageSearch } from '@genoffice/ai-search'
 import type {
   AttachmentAddResult,
   AttachmentImageResult,
@@ -2489,13 +2495,22 @@ export function registerAiIpc(): void {
 
   // Compatibility with existing panels: only the sanitized selected connection/model is accepted.
   ipcMain.handle('ai:set-settings', async (_event, settings: AiSettings) =>
-    providerSettings.select(settings.selectedConnectionId ?? 'openai-oauth', settings.providers?.[settings.provider]?.model ?? 'gpt-5.6-sol'),
+    providerSettings.select(
+      settings.selectedConnectionId ?? 'openai-oauth',
+      settings.providers?.[settings.provider]?.model ?? 'gpt-5.6-sol',
+    ),
   )
-  ipcMain.handle('ai:select-connection', (_event, id: unknown, model: unknown) => providerSettings.select(id, model))
-  ipcMain.handle('ai:save-api-key', (_event, key: unknown, model?: unknown) => providerSettings.saveApiKey(key, model))
+  ipcMain.handle('ai:select-connection', (_event, id: unknown, model: unknown) =>
+    providerSettings.select(id, model),
+  )
+  ipcMain.handle('ai:save-api-key', (_event, id: unknown, key: unknown, model?: unknown) =>
+    providerSettings.saveApiKey(id, key, model),
+  )
   ipcMain.handle('ai:oauth-start', () => providerSettings.startOAuth())
   ipcMain.handle('ai:oauth-status', () => providerSettings.oauthStatus())
-  ipcMain.handle('ai:disconnect-connection', (_event, id: unknown) => providerSettings.disconnect(id))
+  ipcMain.handle('ai:disconnect-connection', (_event, id: unknown) =>
+    providerSettings.disconnect(id),
+  )
 
   ipcMain.handle('ai:stream', async (event, request: AiStreamRequest) => {
     const { requestId, system, messages } = request
@@ -2531,20 +2546,26 @@ export function registerAiIpc(): void {
     }
     try {
       let stopReason: string | undefined
-      const stream = () => streamForProvider(provider, config!, system, messages, tools, maxTokens, {
-        signal: controller.signal,
-        onDelta: (text) => send({ requestId, type: 'delta', text }),
-        onToolCall: (toolCall) => send({ requestId, type: 'tool-call', toolCall }),
-        onActivity: ping,
-        onStopReason: (reason) => {
-          stopReason = reason
-        },
-      })
+      const stream = () =>
+        streamForProvider(provider, config!, system, messages, tools, maxTokens, {
+          signal: controller.signal,
+          onDelta: (text) => send({ requestId, type: 'delta', text }),
+          onToolCall: (toolCall) => send({ requestId, type: 'tool-call', toolCall }),
+          onActivity: ping,
+          onStopReason: (reason) => {
+            stopReason = reason
+          },
+        })
       try {
         await stream()
       } catch (err) {
         // Codex access tokens can be revoked early. Refresh exactly once before surfacing the error.
-        if (provider === 'openai' && config.authType === 'oauth' && /Codex HTTP 401|Codex HTTP 403/.test(String(err)) && await providerSettings.refreshSelectedOAuth()) {
+        if (
+          provider === 'openai' &&
+          config.authType === 'oauth' &&
+          /Codex HTTP 401|Codex HTTP 403/.test(String(err)) &&
+          (await providerSettings.refreshSelectedOAuth())
+        ) {
           const retried = await providerSettings.config()
           if (!retried.config) throw err
           config = retried.config
@@ -2557,7 +2578,10 @@ export function registerAiIpc(): void {
         send({ requestId, type: 'done' })
       } else {
         // Deliberately contains provider/model/error only: request text, responses and credentials stay private.
-        console.error(`[ai-stream] ${requestId} (${provider}/${config?.model ?? 'no-model'}) failed:`, err instanceof Error ? err.message : String(err))
+        console.error(
+          `[ai-stream] ${requestId} (${provider}/${config?.model ?? 'no-model'}) failed:`,
+          err instanceof Error ? err.message : String(err),
+        )
         send({
           requestId,
           type: 'error',

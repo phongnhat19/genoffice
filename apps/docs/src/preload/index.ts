@@ -64,8 +64,10 @@ const api: DesktopApi = {
     ipcRenderer.invoke('docs:save-merged-pdf', defaultName, base64Parts, outPath),
   getAiSettings: () => ipcRenderer.invoke('ai:get-settings'),
   setAiSettings: (settings: AiSettings) => ipcRenderer.invoke('ai:set-settings', settings),
-  aiSelectConnection: (id: string, model: string) => ipcRenderer.invoke('ai:select-connection', id, model),
-  aiSaveApiKey: (key: string, model?: string) => ipcRenderer.invoke('ai:save-api-key', key, model),
+  aiSelectConnection: (id: string, model: string) =>
+    ipcRenderer.invoke('ai:select-connection', id, model),
+  aiSaveApiKey: (id: string, key: string, model?: string) =>
+    ipcRenderer.invoke('ai:save-api-key', id, key, model),
   aiStartOAuth: () => ipcRenderer.invoke('ai:oauth-start'),
   aiOAuthStatus: () => ipcRenderer.invoke('ai:oauth-status'),
   aiDisconnectConnection: (id: string) => ipcRenderer.invoke('ai:disconnect-connection', id),

@@ -15,6 +15,7 @@ export type {
 export {
   AI_PROVIDERS,
   OPENAI_CODEX_MODELS,
+  OPENROUTER_MODELS,
   defaultAiSettings,
   resolveAiSettings,
 } from './providers'

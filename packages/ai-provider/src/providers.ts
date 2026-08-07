@@ -39,6 +39,17 @@ export const AI_PROVIDERS: AiProviderMeta[] = [
     keyPlaceholder: 'sk-...',
   },
   {
+    id: 'openrouter',
+    label: 'OpenRouter',
+    models: [
+      '~anthropic/claude-sonnet-latest',
+      '~openai/gpt-latest',
+      '~deepseek/deepseek-v4-flash-latest',
+    ],
+    defaultModel: '~anthropic/claude-sonnet-latest',
+    keyPlaceholder: 'sk-or-...',
+  },
+  {
     id: 'custom',
     label: 'Custom',
     models: [],
@@ -50,6 +61,13 @@ export const AI_PROVIDERS: AiProviderMeta[] = [
 
 /** Curated models available through the OpenAI Codex subscription OAuth path. */
 export const OPENAI_CODEX_MODELS = ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna'] as const
+
+/** Curated OpenRouter models with tool-calling support. The `~` aliases track each family's latest release. */
+export const OPENROUTER_MODELS = [
+  '~anthropic/claude-sonnet-latest',
+  '~openai/gpt-latest',
+  '~deepseek/deepseek-v4-flash-latest',
+] as const
 
 /**
  * Fresh settings with every provider's default model and an empty key,

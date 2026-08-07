@@ -18,6 +18,16 @@ describe('defaultAiSettings', () => {
     expect(settings.providers.anthropic.apiKey).toBe('sk-ant-preset')
     expect(settings.providers.gemini.apiKey).toBe('')
   })
+
+  it('registers OpenRouter with a tool-capable default model', () => {
+    const openrouter = AI_PROVIDERS.find((provider) => provider.id === 'openrouter')
+    expect(openrouter).toMatchObject({
+      label: 'OpenRouter',
+      defaultModel: '~anthropic/claude-sonnet-latest',
+      keyPlaceholder: 'sk-or-...',
+    })
+    expect(openrouter?.models).toContain(openrouter?.defaultModel)
+  })
 })
 
 describe('resolveAiSettings', () => {
@@ -58,7 +68,10 @@ describe('resolveAiSettings', () => {
       defaults,
     )
     expect(resolved.provider).toBe('gemini')
-    expect(resolved.providers.gemini).toEqual({ apiKey: 'stored-gemini-key', model: 'gemini-2.5-pro' })
+    expect(resolved.providers.gemini).toEqual({
+      apiKey: 'stored-gemini-key',
+      model: 'gemini-2.5-pro',
+    })
     // provider not mentioned in stored.providers keeps the computed default
     expect(resolved.providers.anthropic.apiKey).toBe('preset-key')
   })

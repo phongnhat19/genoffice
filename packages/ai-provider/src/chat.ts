@@ -122,16 +122,23 @@ async function chatOpenAiCodex(
   try {
     await streamOpenAiCodex(config, system, [{ role: 'user', text: user }], [], 8192, {
       ...(signal ? { signal } : {}),
-      onDelta: (text) => { content += text },
+      onDelta: (text) => {
+        content += text
+      },
       onToolCall: () => undefined,
     })
-    return content ? { ok: true, content } : { ok: false, error: 'Codex returned an empty response' }
-  } catch (error) { return { ok: false, error: error instanceof Error ? error.message : String(error) } }
+    return content
+      ? { ok: true, content }
+      : { ok: false, error: 'Codex returned an empty response' }
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) }
+  }
 }
 
 const OPENAI_COMPATIBLE_BASE_URLS: Partial<Record<AiProviderId, string>> = {
   deepseek: 'https://api.deepseek.com/v1',
   openai: 'https://api.openai.com/v1',
+  openrouter: 'https://openrouter.ai/api/v1',
 }
 
 /** route a one-shot (non-streaming, non-tool-calling) chat call by provider id */
@@ -152,6 +159,7 @@ export async function chatForProvider(
       case 'gemini':
         return chatGemini(wd, config, system, user)
       case 'deepseek':
+      case 'openrouter':
         return chatOpenAiCompatible(
           wd,
           OPENAI_COMPATIBLE_BASE_URLS[provider]!,

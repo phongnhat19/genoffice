@@ -48,6 +48,7 @@ describe('streamForProvider: empty SSE streams surface as errors', () => {
     ['anthropic', 'claude-sonnet-5', /Claude returned no content/],
     ['gemini', 'gemini-2.5-flash', /Gemini returned no content/],
     ['openai', 'gpt-4.1-mini', /The model returned no content/],
+    ['openrouter', '~openai/gpt-latest', /The model returned no content/],
   ] as const)('%s: rejects on an empty stream', async (provider, model, message) => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(okResponse(sseStream([]))))
     const { cb } = collector()
@@ -111,6 +112,39 @@ describe('streamForProvider: empty SSE streams surface as errors', () => {
       cb,
     )
     expect(toolCalls).toHaveLength(1)
+  })
+})
+
+describe('streamForProvider: OpenRouter', () => {
+  it('uses the OpenAI-compatible endpoint and preserves streaming tool calls', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        okResponse(
+          sseStream([
+            'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","function":{"name":"apply_change","arguments":"{\\"value\\":1}"}}]},"finish_reason":"tool_calls"}]}',
+            'data: [DONE]',
+          ]),
+        ),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+    const { toolCalls, cb } = collector()
+    await streamForProvider(
+      'openrouter',
+      { apiKey: 'sk-or-key', model: '~openai/gpt-latest' },
+      'system',
+      [{ role: 'user', text: 'hi' }],
+      [{ name: 'apply_change', description: 'Apply a change', inputSchema: { type: 'object' } }],
+      100,
+      cb,
+    )
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://openrouter.ai/api/v1/chat/completions',
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer sk-or-key' }),
+      }),
+    )
+    expect(toolCalls).toEqual([{ id: 'call_1', name: 'apply_change', input: { value: 1 } }])
   })
 })
 
@@ -716,7 +750,9 @@ describe('streamForProvider: 200 + non-stream JSON instead of SSE', () => {
           candidates: [
             {
               content: {
-                parts: [{ text: 'Out of quota: credits are exhausted. Please top up to continue.' }],
+                parts: [
+                  { text: 'Out of quota: credits are exhausted. Please top up to continue.' },
+                ],
               },
             },
           ],

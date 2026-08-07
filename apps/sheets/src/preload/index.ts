@@ -1,10 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 
-import type {
-  AiChatResponse,
-  AiSettings,
-  AiStreamChunk,
-} from '@genoffice/ai-provider'
+import type { AiChatResponse, AiSettings, AiStreamChunk } from '@genoffice/ai-provider'
 import type { ProjectApi } from '@genoffice/project-store'
 import type {
   AttachmentAddResult,
@@ -222,12 +218,14 @@ const desktopApi: DesktopApi = {
     if (!isRecord(result)) throw new Error('Invalid AI settings response.')
     return result as unknown as AiSettings
   },
-  async aiSaveApiKey(key, model) {
-    const result: unknown = await ipcRenderer.invoke('ai:save-api-key', key, model)
+  async aiSaveApiKey(id, key, model) {
+    const result: unknown = await ipcRenderer.invoke('ai:save-api-key', id, key, model)
     if (!isRecord(result)) throw new Error('Invalid AI settings response.')
     return result as unknown as AiSettings
   },
-  async aiStartOAuth() { await ipcRenderer.invoke('ai:oauth-start') },
+  async aiStartOAuth() {
+    await ipcRenderer.invoke('ai:oauth-start')
+  },
   async aiOAuthStatus() {
     const result: unknown = await ipcRenderer.invoke('ai:oauth-status')
     if (!isRecord(result)) throw new Error('Invalid AI settings response.')

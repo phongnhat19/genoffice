@@ -64,15 +64,29 @@ describe('chatForProvider', () => {
     expect(result).toEqual({ ok: true, content: 'hi there' })
   })
 
-  it('deepseek and openai hit their fixed base URLs', async () => {
+  it('deepseek, OpenAI, and OpenRouter hit their fixed base URLs', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(jsonResponse({ choices: [{ message: { content: 'ok' } }] }))
+      .mockImplementation(() =>
+        Promise.resolve(jsonResponse({ choices: [{ message: { content: 'ok' } }] })),
+      )
     vi.stubGlobal('fetch', fetchMock)
     await chatForProvider('deepseek', { apiKey: 'k', model: 'deepseek-chat' }, 'sys', 'hi')
     expect(fetchMock).toHaveBeenCalledWith(
       'https://api.deepseek.com/v1/chat/completions',
       expect.anything(),
+    )
+    await chatForProvider(
+      'openrouter',
+      { apiKey: 'sk-or-key', model: '~openai/gpt-latest' },
+      'sys',
+      'hi',
+    )
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      'https://openrouter.ai/api/v1/chat/completions',
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer sk-or-key' }),
+      }),
     )
   })
 
