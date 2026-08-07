@@ -3,7 +3,7 @@
  * auto-update feed URL can be injected at build time instead of living in
  * the repo).
  *
- * GENOFFICE_UPDATE_URL — public base URL of the update channel (the generic
+ * ORIO_UPDATE_URL — public base URL of the update channel (the generic
  * provider prefix that serves latest.yml / latest-mac.yml). Required for
  * release builds; CI provides it as a repository secret. For local release
  * builds put it in apps/shell/electron-builder.env (gitignored) — the
@@ -17,23 +17,7 @@
 const { existsSync } = require('node:fs')
 const { join } = require('node:path')
 
-const updateUrl = process.env.GENOFFICE_UPDATE_URL
-
-// The gsk CLI tree below is copied verbatim from node_modules, and the
-// nested commander path depends on npm's current hoisting layout — fail the
-// build with a clear message if an install ever changes it, instead of
-// shipping an installer with a broken gsk runtime.
-for (const rel of [
-  '../../node_modules/@genspark/cli',
-  '../../node_modules/@genspark/cli/node_modules/commander',
-  '../../node_modules/ws',
-]) {
-  if (!existsSync(join(__dirname, rel))) {
-    throw new Error(
-      `electron-builder extraResources source missing: ${rel} (npm hoisting changed?)`,
-    )
-  }
-}
+const updateUrl = process.env.ORIO_UPDATE_URL
 
 // The module trees are electron-vite outputs produced by build:all; a missing
 // one means that module's build did not run or failed. electron-builder only
@@ -56,8 +40,8 @@ function assertModuleTreesPresent() {
 
 /** @type {import('electron-builder').Configuration} */
 const config = {
-  appId: 'com.genoffice.app',
-  productName: 'GenOffice',
+  appId: 'io.orio.app',
+  productName: 'ORIO',
   electronVersion: '41.7.1',
   directories: {
     output: 'release',
@@ -87,18 +71,6 @@ const config = {
     {
       from: '../pdf/out',
       to: 'modules/pdf',
-    },
-    {
-      from: '../../node_modules/@genspark/cli',
-      to: 'gsk/node_modules/@genspark/cli',
-    },
-    {
-      from: '../../node_modules/@genspark/cli/node_modules/commander',
-      to: 'gsk/node_modules/commander',
-    },
-    {
-      from: '../../node_modules/ws',
-      to: 'gsk/node_modules/ws',
     },
   ],
   // `mimeType` is read only by the Linux target, where it becomes the
@@ -190,7 +162,7 @@ const config = {
     // generated genoffice.desktop match the WM_CLASS Electron reports (it
     // takes that from the executable basename), so the running window links
     // back to its launcher entry.
-    executableName: 'genoffice',
+    executableName: 'orio',
     // Electron takes its X11 app_id from package.json "desktopName"
     // (genoffice.desktop); syncDesktopName makes electron-builder name the
     // .desktop file and its StartupWMClass from the same value. Without it

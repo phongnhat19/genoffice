@@ -21,3 +21,4 @@ export {
   type FetchWithSsrfGuardOptions,
 } from './safe-remote-url'
 export { fetchRemoteImage, remoteImageHeaders } from './remote-image'
+export { AiProviderSettingsService, buildCodexAuthorizeUrl, type ProviderSettingsOptions, type SafeStorageLike } from './ai-provider-settings'

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { AiComposer, AiTypingIndicator } from '@genoffice/ui'
-import { GensparkMark } from '../ribbon-icons'
+import { AiComposer, AiProviderControls, AiTypingIndicator } from '@genoffice/ui'
+import type { AiSettings } from '@genoffice/ai-provider'
+import { OrioMark } from '../ribbon-icons'
 import type { ChangePlan } from '../../domain/workbook.types'
 import { ATTACHMENT_IMAGE_EXTS, type AttachmentMeta } from '../../shared/desktop-api'
 import { useI18n, type TFunc } from '../i18n/locale'
@@ -167,6 +168,8 @@ export function AiChatPanel({
   onUndo,
   onExpand,
   onCollapse,
+  settings,
+  onSettings,
 }: {
   readonly isOpen: boolean
   /** the workbook has cells with content — empty workbooks get "build me a sheet" copy instead */
@@ -194,6 +197,8 @@ export function AiChatPanel({
   readonly onUndo: () => void
   readonly onExpand: () => void
   readonly onCollapse: () => void
+  readonly settings: AiSettings | null | undefined
+  readonly onSettings?: (settings: AiSettings) => void
 }): React.JSX.Element {
   const { t } = useI18n()
   const chatRef = useRef<HTMLDivElement | null>(null)
@@ -328,7 +333,7 @@ export function AiChatPanel({
     return (
       <aside className="copilot collapsed">
         <button className="expand-copilot" onClick={onExpand} title={t('aiOpenAssistant')}>
-          <GensparkMark size={22} />
+          <OrioMark size={22} />
         </button>
       </aside>
     )
@@ -389,12 +394,12 @@ export function AiChatPanel({
         onPointerDown={startResize}
         role="separator"
         aria-orientation="vertical"
-        aria-label="Genspark"
+        aria-label="Smart Office"
       />
       <header className="ai-panel-header">
         <span className="ai-panel-title">
-          <GensparkMark size={22} />
-          Genspark
+          <OrioMark size={22} />
+          Smart Office
         </span>
         <div className="ai-panel-header-actions">
           {(chat.length > 0 || historicChat.length > 0) && (
@@ -474,14 +479,6 @@ export function AiChatPanel({
                     </button>
                   </div>
                 )}
-                {entry.loginRequired && (
-                  <button
-                    className="ai-login-btn"
-                    onClick={() => void window.desktopApi.aiGskLogin()}
-                  >
-                    {t('aiGskLoginBtn')}
-                  </button>
-                )}
               </>
             )}
           </div>
@@ -540,8 +537,9 @@ export function AiChatPanel({
         {attachNotice && <div className="ai-attach-notice">{attachNotice}</div>}
         <AiComposer
           header={
-            attachments.length > 0 && (
-              <div className="ai-attachments" onScroll={onAttachmentsScroll}>
+            <>
+              {settings && <AiProviderControls settings={settings} onSettings={onSettings ?? (() => undefined)} />}
+              {attachments.length > 0 && <div className="ai-attachments" onScroll={onAttachmentsScroll}>
                 {attachments.map((attachment) =>
                   ATTACHMENT_IMAGE_EXTS.has(attachment.ext) ? (
                     <span
@@ -607,8 +605,8 @@ export function AiChatPanel({
                     </span>
                   ),
                 )}
-              </div>
-            )
+              </div>}
+            </>
           }
           value={prompt}
           busy={aiBusy}
@@ -624,13 +622,11 @@ export function AiChatPanel({
           sendIconDisabled={<img src={sendEnterOff} alt="" aria-hidden />}
           stopIcon={<img src={sendStop} alt="" aria-hidden />}
           footerStart={
-            <button
-              className="ai-attach-btn"
-              onClick={onPickAttachments}
-              title={t('aiAttachTitle')}
-            >
-              <img src={attachIcon} alt="" aria-hidden />
-            </button>
+            <>
+              <button className="ai-attach-btn" onClick={onPickAttachments} title={t('aiAttachTitle')}>
+                <img src={attachIcon} alt="" aria-hidden />
+              </button>
+            </>
           }
           textareaRef={inputRef}
           onChange={onPromptChange}

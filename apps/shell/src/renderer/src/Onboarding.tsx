@@ -181,7 +181,7 @@ export function Onboarding({ onDone }: OnboardingProps) {
                 <div className="onb-offer">
                   <p className="onb-credits">{renderEmphasis(t('onbCredits'))}</p>
                   <button className="onb-join" onClick={() => void window.aiOffice.openGenTeam()}>
-                    {t('onbJoinGenTeam')}
+                      {t('onbJoinCommunity')}
                     <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
                       <path
                         d="M3.5 8.5 8.5 3.5M4.5 3.5h4v4"

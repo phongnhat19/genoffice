@@ -4,31 +4,21 @@
  * to avoid renderer CORS), search tools, and the slides-only ai:* channels
  * (image generation, media analysis, style templates).
  */
-import { app, ipcMain, shell } from 'electron'
+import { app, ipcMain, safeStorage, shell } from 'electron'
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   AiCreditsError,
   AiTimeoutError,
-  defaultAiSettings,
-  resolveAiSettings,
   streamForProvider,
   type AiSettings,
   type AiStreamChunk,
   type AiStreamRequest,
-  type GenSparkAccountStatus,
-  type LegacyAiSettings,
 } from '@genoffice/ai-provider'
-import { fetchRemoteImage } from '@genoffice/electron-utils'
+import { AiProviderSettingsService, fetchRemoteImage } from '@genoffice/electron-utils'
 import {
   webSearch,
   imageSearch,
-  ensureGenofficeLogin,
-  gskApiKey,
-  gskGenerateImage,
-  gskAnalyzeMedia,
-  gskLoginInfo,
-  hasGskAuth,
 } from '@genoffice/ai-search'
 import { addPicture } from '@genoffice/pptx-engine'
 import { EMU_PER_PX_96 } from '@genoffice/pptx-render'
@@ -56,43 +46,29 @@ function writeJson(path: string, value: unknown): void {
 const activeAiStreams = new Map<string, AbortController>()
 
 export function registerAiIpc(): void {
-  ipcMain.handle('ai:get-settings', (): AiSettings => {
-    const stored = readJson<Partial<AiSettings> & LegacyAiSettings>(AI_SETTINGS_PATH(), {})
-    const settings = resolveAiSettings(stored, defaultAiSettings())
-    // AI features all go through Genspark (gsk login); stored settings that chose another provider are normalized back
-    settings.provider = 'genspark'
-    return settings
+  const providerSettings = new AiProviderSettingsService({
+    path: AI_SETTINGS_PATH,
+    safeStorage,
+    openExternal: (url) => shell.openExternal(url),
   })
+  ipcMain.handle('ai:get-settings', () => providerSettings.view())
 
-  // Genspark account (gsk login state): the auth source for AI features; when logged out the frontend uses this to guide login
-  ipcMain.handle(
-    'ai:gsk-status',
-    async (_event, withEmail?: boolean): Promise<GenSparkAccountStatus> => {
-      if (!hasGskAuth()) return { loggedIn: false }
-      if (!withEmail) return { loggedIn: true }
-      const info = await gskLoginInfo()
-      return info?.email ? { loggedIn: true, email: info.email } : { loggedIn: true }
-    },
+  ipcMain.handle('ai:set-settings', async (_event, settings: AiSettings) =>
+    providerSettings.select(settings.selectedConnectionId ?? 'openai-oauth', settings.providers?.[settings.provider]?.model ?? 'gpt-5.6-sol'),
   )
-
-  ipcMain.handle('ai:gsk-login', () => {
-    ensureGenofficeLogin((url) => void shell.openExternal(url))
-  })
-
-  ipcMain.handle('ai:set-settings', (_event, settings: AiSettings) => {
-    writeJson(AI_SETTINGS_PATH(), settings)
-  })
+  ipcMain.handle('ai:select-connection', (_event, id: unknown, model: unknown) => providerSettings.select(id, model))
+  ipcMain.handle('ai:save-api-key', (_event, key: unknown, model?: unknown) => providerSettings.saveApiKey(key, model))
+  ipcMain.handle('ai:oauth-start', () => providerSettings.startOAuth())
+  ipcMain.handle('ai:oauth-status', () => providerSettings.oauthStatus())
+  ipcMain.handle('ai:disconnect-connection', (_event, id: unknown) => providerSettings.disconnect(id))
 
   ipcMain.handle('ai:stream', async (event, request: AiStreamRequest) => {
-    const { requestId, settings, system, messages } = request
+    const { requestId, system, messages } = request
     const tools = request.tools ?? []
     const maxTokens = request.maxTokens ?? 8192
-    const provider = settings.provider
-    let config = settings.providers?.[provider]
-    // The genspark key never enters the settings file; it is fetched from the gsk login state per request
-    if (provider === 'genspark' && config && !config.apiKey) {
-      config = { ...config, apiKey: gskApiKey() }
-    }
+    const resolved = await providerSettings.config()
+    const provider = resolved.provider
+    let config = resolved.config
     const send = (chunk: AiStreamChunk) => {
       if (!event.sender.isDestroyed()) event.sender.send('ai:stream-chunk', chunk)
     }
@@ -100,7 +76,7 @@ export function registerAiIpc(): void {
       send({
         requestId,
         type: 'error',
-        error: provider === 'genspark' ? tm('errGskNotLoggedIn') : tm('errNoApiKey', { provider }),
+        error: tm('errNoApiKey', { provider }),
       })
       return
     }
@@ -119,12 +95,22 @@ export function registerAiIpc(): void {
       send({ requestId, type: 'ping' })
     }
     try {
-      await streamForProvider(provider, config, system, messages, tools, maxTokens, {
+      const stream = () => streamForProvider(provider, config!, system, messages, tools, maxTokens, {
         signal: controller.signal,
         onDelta: (text) => send({ requestId, type: 'delta', text }),
         onToolCall: (toolCall) => send({ requestId, type: 'tool-call', toolCall }),
         onActivity: ping,
       })
+      try {
+        await stream()
+      } catch (err) {
+        if (provider === 'openai' && config.authType === 'oauth' && /Codex HTTP 401|Codex HTTP 403/.test(String(err)) && await providerSettings.refreshSelectedOAuth()) {
+          const retried = await providerSettings.config()
+          if (!retried.config) throw err
+          config = retried.config
+          await stream()
+        } else throw err
+      }
       send({ requestId, type: 'done' })
     } catch (err) {
       if (controller.signal.aborted) {
@@ -176,7 +162,7 @@ export function registerAiIpc(): void {
 // never called; docs does not have these channels, so putting them in the wrong place raises
 // "No handler registered".
 export function registerSlidesOnlyAiIpc(): void {
-  // gsk (Genspark CLI) capabilities: AI image generation / media analysis. Returns an error prompt when not logged in.
+  // Optional image/media generation requires an independently configured provider.
   ipcMain.handle(
     'ai:generate-image',
     async (
@@ -189,37 +175,16 @@ export function registerSlidesOnlyAiIpc(): void {
         imageSize?: string
       },
     ) => {
-      if (!hasGskAuth()) return { error: tm('errGskCli') }
-      try {
-        const r = await gskGenerateImage({
-          prompt: String(op.prompt),
-          model: op.model ? String(op.model) : undefined,
-          referenceImageUrls: Array.isArray(op.referenceImageUrls)
-            ? op.referenceImageUrls.map(String)
-            : undefined,
-          aspectRatio: op.aspectRatio ? String(op.aspectRatio) : undefined,
-          imageSize: op.imageSize ? String(op.imageSize) : undefined,
-        })
-        return { url: r.url }
-      } catch (err) {
-        return { error: err instanceof Error ? err.message : String(err) }
-      }
+      void op
+      return { error: 'Image generation is not configured for this ORIO installation.' }
     },
   )
 
   ipcMain.handle(
     'ai:analyze-media',
     async (_event, op: { mediaUrls: string[]; requirements: string }) => {
-      if (!hasGskAuth()) return { error: tm('errGskCli') }
-      try {
-        const text = await gskAnalyzeMedia({
-          mediaUrls: (op.mediaUrls ?? []).map(String),
-          requirements: String(op.requirements ?? ''),
-        })
-        return { text }
-      } catch (err) {
-        return { error: err instanceof Error ? err.message : String(err) }
-      }
+      void op
+      return { error: 'Media analysis is not configured for this ORIO installation.' }
     },
   )
 

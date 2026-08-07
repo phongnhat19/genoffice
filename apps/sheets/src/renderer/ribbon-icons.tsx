@@ -698,6 +698,16 @@ export const RIBBON_GLYPH_ICONS: Record<string, ReactElement> = {
 
 /** Genspark brand mark (rounded-square sparkle badge), inline so it renders
  * crisply at device resolution instead of going through <img> rasterization */
+export function OrioMark({ size = 18 }: { readonly size?: number }): ReactElement {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden>
+      <rect width="32" height="32" rx="8" fill="#2563eb" />
+      <circle cx="16" cy="16" r="8.2" stroke="#fff" strokeWidth="3" />
+      <path d="M22.5 7.5v5M20 10h5" stroke="#bfdbfe" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 export function GensparkMark({ size = 18 }: { readonly size?: number }): ReactElement {
   return (
     <svg

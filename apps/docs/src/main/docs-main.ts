@@ -10,11 +10,12 @@ import {
 } from 'node:fs'
 import { copyFile, mkdir, readFile, readdir, stat, unlink } from 'node:fs/promises'
 import { basename, join } from 'node:path'
-import { BrowserWindow, Menu, WebContentsView, app, dialog, ipcMain, shell } from 'electron'
+import { BrowserWindow, Menu, WebContentsView, app, dialog, ipcMain, safeStorage, shell } from 'electron'
 import {
   appMenuLabels,
   contextMenuLabels,
   fetchRemoteImage,
+  AiProviderSettingsService,
   installContextMenu,
   installNavigationGuard,
   safeExternalUrl,
@@ -34,21 +35,13 @@ import {
   AiCreditsError,
   AiTimeoutError,
   chatForProvider,
-  defaultAiSettings,
-  resolveAiSettings,
   streamForProvider,
   type AiChatRequest,
   type AiSettings,
   type AiStreamChunk,
   type AiStreamRequest,
-  type GenSparkAccountStatus,
-  type LegacyAiSettings,
 } from '@genoffice/ai-provider'
 import {
-  ensureGenofficeLogin,
-  gskApiKey,
-  gskLoginInfo,
-  hasGskAuth,
   webSearch,
   imageSearch,
 } from '@genoffice/ai-search'
@@ -1887,14 +1880,27 @@ interface DocsRuntimeConfig {
   rendererFile: string
 }
 
+function devRendererUrl(value: string | undefined): string | undefined {
+  if (!value) return undefined
+  try {
+    const url = new URL(value)
+    // electron-vite currently injects localhost here even when Vite is bound
+    // to 127.0.0.1. On macOS those can resolve to separate loopback families.
+    if (url.hostname === 'localhost') url.hostname = '127.0.0.1'
+    return url.toString()
+  } catch {
+    return value
+  }
+}
+
 let runtime: DocsRuntimeConfig = {
   preloadPath: join(__dirname, '../preload/index.js'),
-  rendererUrl: process.env.ELECTRON_RENDERER_URL,
+  rendererUrl: devRendererUrl(process.env.ELECTRON_RENDERER_URL),
   rendererFile: join(__dirname, '../renderer/index.html'),
 }
 
 export function configureDocsRuntime(config: DocsRuntimeConfig): void {
-  runtime = config
+  runtime = { ...config, rendererUrl: devRendererUrl(config.rendererUrl) }
   // shell mode: the shell queues argv files itself (per-tab pendingWindowOpens);
   // the module-scope fallback would leak the double-clicked file into the next
   // blank tab's consume-pending-open
@@ -1949,7 +1955,7 @@ async function saveDialog(event: IpcMainInvokeEvent, options: SaveDialogOptions)
 
 /** default folder where new files land on their first (silent) save; shared with the other editors via shell */
 export function defaultSaveDir(): string {
-  const dir = join(app.getPath('documents'), 'GenOffice')
+  const dir = join(app.getPath('documents'), 'ORIO')
   mkdirSync(dir, { recursive: true })
   return dir
 }
@@ -2474,43 +2480,30 @@ const activeAiStreams = new Map<string, AbortController>()
  * sheets' standalone AI handlers use the same channel names.
  */
 export function registerAiIpc(): void {
-  ipcMain.handle('ai:get-settings', (): AiSettings => {
-    const stored = readJson<Partial<AiSettings> & LegacyAiSettings>(SETTINGS_PATH(), {})
-    const settings = resolveAiSettings(stored, defaultAiSettings())
-    // AI features all go through Genspark (gsk login); legacy settings with another provider are reset
-    settings.provider = 'genspark'
-    return settings
+  const providerSettings = new AiProviderSettingsService({
+    path: SETTINGS_PATH,
+    safeStorage,
+    openExternal: (url) => shell.openExternal(url),
   })
+  ipcMain.handle('ai:get-settings', () => providerSettings.view())
 
-  // Genspark account (gsk login state): auth source for AI features; the frontend uses it to prompt login when logged out
-  ipcMain.handle(
-    'ai:gsk-status',
-    async (_event, withEmail?: boolean): Promise<GenSparkAccountStatus> => {
-      if (!hasGskAuth()) return { loggedIn: false }
-      if (!withEmail) return { loggedIn: true }
-      const info = await gskLoginInfo()
-      return info?.email ? { loggedIn: true, email: info.email } : { loggedIn: true }
-    },
+  // Compatibility with existing panels: only the sanitized selected connection/model is accepted.
+  ipcMain.handle('ai:set-settings', async (_event, settings: AiSettings) =>
+    providerSettings.select(settings.selectedConnectionId ?? 'openai-oauth', settings.providers?.[settings.provider]?.model ?? 'gpt-5.6-sol'),
   )
-
-  ipcMain.handle('ai:gsk-login', () => {
-    ensureGenofficeLogin((url) => void shell.openExternal(url))
-  })
-
-  ipcMain.handle('ai:set-settings', (_event, settings: AiSettings) => {
-    writeJson(SETTINGS_PATH(), settings)
-  })
+  ipcMain.handle('ai:select-connection', (_event, id: unknown, model: unknown) => providerSettings.select(id, model))
+  ipcMain.handle('ai:save-api-key', (_event, key: unknown, model?: unknown) => providerSettings.saveApiKey(key, model))
+  ipcMain.handle('ai:oauth-start', () => providerSettings.startOAuth())
+  ipcMain.handle('ai:oauth-status', () => providerSettings.oauthStatus())
+  ipcMain.handle('ai:disconnect-connection', (_event, id: unknown) => providerSettings.disconnect(id))
 
   ipcMain.handle('ai:stream', async (event, request: AiStreamRequest) => {
-    const { requestId, settings, system, messages } = request
+    const { requestId, system, messages } = request
     const tools = request.tools ?? []
     const maxTokens = request.maxTokens ?? 8192
-    const provider = settings.provider
-    let config = settings.providers?.[provider]
-    // the genspark key never enters the settings file; requests take it from the gsk login state
-    if (provider === 'genspark' && config && !config.apiKey) {
-      config = { ...config, apiKey: gskApiKey() }
-    }
+    const resolved = await providerSettings.config()
+    const provider = resolved.provider
+    let config = resolved.config
     const send = (chunk: AiStreamChunk) => {
       if (!event.sender.isDestroyed()) event.sender.send('ai:stream-chunk', chunk)
     }
@@ -2518,7 +2511,7 @@ export function registerAiIpc(): void {
       send({
         requestId,
         type: 'error',
-        error: provider === 'genspark' ? tm('errGskNotLoggedIn') : tm('errNoApiKey', { provider }),
+        error: tm('errNoApiKey', { provider }),
       })
       return
     }
@@ -2538,7 +2531,7 @@ export function registerAiIpc(): void {
     }
     try {
       let stopReason: string | undefined
-      await streamForProvider(provider, config, system, messages, tools, maxTokens, {
+      const stream = () => streamForProvider(provider, config!, system, messages, tools, maxTokens, {
         signal: controller.signal,
         onDelta: (text) => send({ requestId, type: 'delta', text }),
         onToolCall: (toolCall) => send({ requestId, type: 'tool-call', toolCall }),
@@ -2547,11 +2540,24 @@ export function registerAiIpc(): void {
           stopReason = reason
         },
       })
+      try {
+        await stream()
+      } catch (err) {
+        // Codex access tokens can be revoked early. Refresh exactly once before surfacing the error.
+        if (provider === 'openai' && config.authType === 'oauth' && /Codex HTTP 401|Codex HTTP 403/.test(String(err)) && await providerSettings.refreshSelectedOAuth()) {
+          const retried = await providerSettings.config()
+          if (!retried.config) throw err
+          config = retried.config
+          await stream()
+        } else throw err
+      }
       send({ requestId, type: 'done', stopReason })
     } catch (err) {
       if (controller.signal.aborted) {
         send({ requestId, type: 'done' })
       } else {
+        // Deliberately contains provider/model/error only: request text, responses and credentials stay private.
+        console.error(`[ai-stream] ${requestId} (${provider}/${config?.model ?? 'no-model'}) failed:`, err instanceof Error ? err.message : String(err))
         send({
           requestId,
           type: 'error',
@@ -2614,16 +2620,14 @@ export function registerAiIpc(): void {
   )
 
   ipcMain.handle('ai:chat', async (_event, request: AiChatRequest) => {
-    const { settings, system, user } = request
-    const provider = settings.provider
-    let config = settings.providers?.[provider]
-    if (provider === 'genspark' && config && !config.apiKey) {
-      config = { ...config, apiKey: gskApiKey() }
-    }
+    const { system, user } = request
+    const resolved = await providerSettings.config()
+    const provider = resolved.provider
+    const config = resolved.config
     if (!config?.apiKey) {
       return {
         ok: false,
-        error: provider === 'genspark' ? tm('errGskNotLoggedIn') : tm('errNoApiKey', { provider }),
+        error: tm('errNoApiKey', { provider }),
       }
     }
     if (!config.model) return { ok: false, error: tm('errNoModel') }
@@ -3463,7 +3467,7 @@ export function createDocsWindow(openPath?: string): BrowserWindow {
     height: 900,
     minWidth: 980,
     minHeight: 600,
-    title: 'GenOffice Docs',
+    title: 'ORIO Docs',
     // Word-like custom title bar (document name centered, quick-access buttons)
     ...(process.platform === 'darwin'
       ? { titleBarStyle: 'hiddenInset' as const }
@@ -3737,7 +3741,7 @@ export function startDocsStandalone(): void {
   // dev runs must not share the packaged app's userData (recent files, AI settings)
   // or its single-instance lock — otherwise `npm run dev` silently quits whenever
   // the installed GenOffice Docs is open and forwards its argv there instead.
-  if (isDev) app.setPath('userData', join(app.getPath('appData'), 'GenOffice Docs Dev'))
+  if (isDev) app.setPath('userData', join(app.getPath('appData'), 'ORIO Docs Dev'))
 
   const hasSingleInstanceLock = app.requestSingleInstanceLock()
   if (!hasSingleInstanceLock) {

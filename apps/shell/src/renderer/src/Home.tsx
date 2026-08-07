@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import logoLockup from './assets/genoffice-logo.svg'
+import logoLockup from './assets/orio-logo.svg'
 import iconDocx from './assets/file-docx.svg'
 import iconXlsx from './assets/file-xlsx.svg'
 import iconPptx from './assets/file-pptx.svg'
@@ -667,7 +667,7 @@ function AccountEntry() {
                 onClick={startLogin}
                 title={waiting ? t('waitingLogin') : undefined}
               >
-                {waiting ? t('waitingShort') : t('loginGenspark')}
+                {waiting ? t('waitingShort') : t('loginORIO')}
               </button>
               {waiting && authUrl && (
                 <>
@@ -917,10 +917,10 @@ function AccountEntry() {
         aria-expanded={menuOpen}
         title={
           loggedIn
-            ? email || t('loggedInGenspark')
+            ? email || t('loggedInORIO')
             : waiting
               ? t('waitingLogin')
-              : (errorText ?? t('loginGenspark'))
+              : (errorText ?? t('loginORIO'))
         }
         aria-label={loggedIn ? t('account') : t('login')}
       >
@@ -963,7 +963,7 @@ function AccountEntry() {
             <>
               <span className="account-name">{waiting ? t('waitingShort') : t('login')}</span>
               <span className={`account-sub${!waiting && errorText ? ' error' : ''}`}>
-                {!waiting && errorText ? errorText : t('accountGenspark')}
+                {!waiting && errorText ? errorText : t('accountORIO')}
               </span>
             </>
           )}
@@ -1848,7 +1848,7 @@ export function Home() {
     <div className="home">
       <aside className="sidebar">
         <div className="sidebar-logo">
-          <img className="logo-lockup" src={logoLockup} alt="GenOffice" />
+          <img className="logo-lockup" src={logoLockup} alt="ORIO" />
         </div>
 
         <nav className="sidebar-nav">
@@ -1910,7 +1910,6 @@ export function Home() {
           </>
         )}
 
-        <AccountEntry />
       </aside>
 
       {selectedProjectId ? renderProjectContent() : renderGlobalContent()}

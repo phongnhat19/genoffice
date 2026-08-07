@@ -19,6 +19,7 @@ import {
   dialog,
   ipcMain,
   Menu,
+  safeStorage,
   session as electronSession,
   shell,
   WebContentsView,
@@ -33,6 +34,7 @@ import type {
 import { z } from 'zod'
 import {
   appMenuLabels,
+  AiProviderSettingsService,
   contextMenuLabels,
   installContextMenu,
   installNavigationGuard,
@@ -47,21 +49,13 @@ import {
   AiCreditsError,
   AiTimeoutError,
   chatForProvider,
-  defaultAiSettings,
-  resolveAiSettings,
   streamForProvider,
   type AiProviderId,
   type AiSettings,
   type AiStreamChunk,
-  type GenSparkAccountStatus,
-  type LegacyAiSettings,
 } from '@genoffice/ai-provider'
 import { csvToXlsxBuffer, decodeCsvBuffer } from '../gateway/csv-import'
 import {
-  ensureGenofficeLogin,
-  gskApiKey,
-  gskLoginInfo,
-  hasGskAuth,
   setGskProxyUrl,
   webSearch,
   imageSearch,
@@ -2014,50 +2008,40 @@ export function registerSheetsAiIpc(): void {
   if (aiIpcRegistered) return
   aiIpcRegistered = true
 
-  ipcMain.handle(IPC_CHANNELS.aiGetSettings, (event): AiSettings => {
-    sessionFor(event)
-    const stored = readJson<Partial<AiSettings> & LegacyAiSettings>(SETTINGS_PATH(), {})
-    const settings = resolveAiSettings(stored, defaultAiSettings())
-    // AI features all go through Genspark (gsk login); legacy settings that chose
-    // another provider are reset
-    settings.provider = 'genspark'
-    return settings
+  const providerSettings = new AiProviderSettingsService({
+    path: SETTINGS_PATH,
+    safeStorage,
+    openExternal: (url) => shell.openExternal(url),
   })
-
-  // Genspark account (gsk login state): the auth source for AI features; the
-  // frontend uses it to guide sign-in when logged out
-  ipcMain.handle(
-    IPC_CHANNELS.aiGskStatus,
-    async (_event, withEmail?: unknown): Promise<GenSparkAccountStatus> => {
-      if (!hasGskAuth()) return { loggedIn: false }
-      if (!withEmail) return { loggedIn: true }
-      const info = await gskLoginInfo()
-      return info?.email ? { loggedIn: true, email: info.email } : { loggedIn: true }
-    },
-  )
-
-  ipcMain.handle(IPC_CHANNELS.aiGskLogin, () => {
-    ensureGenofficeLogin((url) => void shell.openExternal(url))
+  ipcMain.handle(IPC_CHANNELS.aiGetSettings, (event): Promise<AiSettings> => {
+    sessionFor(event)
+    return providerSettings.view()
   })
 
   ipcMain.handle(IPC_CHANNELS.aiSetSettings, (event, input: unknown) => {
     sessionFor(event)
     const settings = aiSettingsInputSchema.parse(input)
-    writeJson(SETTINGS_PATH(), settings)
+    return providerSettings.select(
+      'selectedConnectionId' in settings ? settings.selectedConnectionId ?? 'openai-oauth' : 'openai-oauth',
+      settings.providers?.[settings.provider]?.model ?? 'gpt-5.6-sol',
+    )
   })
+  ipcMain.handle('ai:select-connection', (_event, id: unknown, model: unknown) => providerSettings.select(id, model))
+  ipcMain.handle('ai:save-api-key', (_event, key: unknown, model?: unknown) => providerSettings.saveApiKey(key, model))
+  ipcMain.handle('ai:oauth-start', () => providerSettings.startOAuth())
+  ipcMain.handle('ai:oauth-status', () => providerSettings.oauthStatus())
+  ipcMain.handle('ai:disconnect-connection', (_event, id: unknown) => providerSettings.disconnect(id))
 
   ipcMain.handle(IPC_CHANNELS.aiChat, async (event, input: unknown) => {
     sessionFor(event)
     const request = aiChatRequestSchema.parse(input)
-    const provider = request.settings.provider as AiProviderId
-    let config = request.settings.providers[provider]
-    if (provider === 'genspark' && config && !config.apiKey) {
-      config = { ...config, apiKey: gskApiKey() }
-    }
+    const resolved = await providerSettings.config()
+    const provider = resolved.provider
+    const config = resolved.config
     if (!config?.apiKey) {
       return {
         ok: false,
-        error: provider === 'genspark' ? tm('errGskNotLoggedIn') : tm('errNoApiKey', { provider }),
+        error: tm('errNoApiKey', { provider }),
       }
     }
     if (!config.model) return { ok: false, error: tm('errNoModel') }
@@ -2074,13 +2058,9 @@ export function registerSheetsAiIpc(): void {
     const { requestId, system, messages } = request
     const tools = request.tools ?? []
     const maxTokens = request.maxTokens ?? 8192
-    const provider = request.settings.provider as AiProviderId
-    let config = request.settings.providers[provider]
-    // Genspark's key never enters the settings file; it is read from the gsk
-    // login state per request
-    if (provider === 'genspark' && config && !config.apiKey) {
-      config = { ...config, apiKey: gskApiKey() }
-    }
+    const resolved = await providerSettings.config()
+    const provider = resolved.provider
+    const config = resolved.config
     const send = (chunk: AiStreamChunk) => {
       if (!event.sender.isDestroyed()) event.sender.send(IPC_CHANNELS.aiStreamChunk, chunk)
     }
@@ -2088,7 +2068,7 @@ export function registerSheetsAiIpc(): void {
       send({
         requestId,
         type: 'error',
-        error: provider === 'genspark' ? tm('errGskNotLoggedIn') : tm('errNoApiKey', { provider }),
+        error: tm('errNoApiKey', { provider }),
       })
       return
     }

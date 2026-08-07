@@ -4,7 +4,6 @@ import type {
   AiChatResponse,
   AiSettings,
   AiStreamChunk,
-  GenSparkAccountStatus,
 } from '@genoffice/ai-provider'
 import type { ProjectApi } from '@genoffice/project-store'
 import type {
@@ -218,6 +217,27 @@ const desktopApi: DesktopApi = {
   async setAiSettings(settings) {
     await ipcRenderer.invoke(IPC_CHANNELS.aiSetSettings, settings)
   },
+  async aiSelectConnection(id, model) {
+    const result: unknown = await ipcRenderer.invoke('ai:select-connection', id, model)
+    if (!isRecord(result)) throw new Error('Invalid AI settings response.')
+    return result as unknown as AiSettings
+  },
+  async aiSaveApiKey(key, model) {
+    const result: unknown = await ipcRenderer.invoke('ai:save-api-key', key, model)
+    if (!isRecord(result)) throw new Error('Invalid AI settings response.')
+    return result as unknown as AiSettings
+  },
+  async aiStartOAuth() { await ipcRenderer.invoke('ai:oauth-start') },
+  async aiOAuthStatus() {
+    const result: unknown = await ipcRenderer.invoke('ai:oauth-status')
+    if (!isRecord(result)) throw new Error('Invalid AI settings response.')
+    return result as unknown as AiSettings
+  },
+  async aiDisconnectConnection(id) {
+    const result: unknown = await ipcRenderer.invoke('ai:disconnect-connection', id)
+    if (!isRecord(result)) throw new Error('Invalid AI settings response.')
+    return result as unknown as AiSettings
+  },
   async aiChat(request) {
     const result: unknown = await ipcRenderer.invoke(IPC_CHANNELS.aiChat, request)
     if (!isRecord(result) || typeof result.ok !== 'boolean') {
@@ -231,16 +251,6 @@ const desktopApi: DesktopApi = {
   async aiStreamCancel(requestId) {
     if (!requestId) throw new Error('Invalid AI stream request id.')
     await ipcRenderer.invoke(IPC_CHANNELS.aiStreamCancel, requestId)
-  },
-  async aiGskStatus(withEmail) {
-    const result: unknown = await ipcRenderer.invoke(IPC_CHANNELS.aiGskStatus, withEmail)
-    if (!isRecord(result) || typeof result.loggedIn !== 'boolean') {
-      throw new Error('Invalid Genspark account status response.')
-    }
-    return result as unknown as GenSparkAccountStatus
-  },
-  async aiGskLogin() {
-    await ipcRenderer.invoke(IPC_CHANNELS.aiGskLogin)
   },
   async webSearch(query, maxResults) {
     if (typeof query !== 'string' || !query.trim() || query.length > 512) {

@@ -6,6 +6,8 @@ export default defineConfig({
   root: 'src/renderer',
   plugins: [react()],
   server: {
+    // Keep the shell's renderer URL and Vite on the same loopback family.
+    host: '127.0.0.1',
     port: Number(process.env.DOCS_DEV_PORT) || 5173,
     strictPort: true,
   },

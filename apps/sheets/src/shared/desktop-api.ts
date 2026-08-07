@@ -6,7 +6,6 @@ import type {
   AiSettings,
   AiStreamChunk,
   AiStreamRequest,
-  GenSparkAccountStatus,
 } from '@genoffice/ai-provider'
 
 const MAX_RANGE_CELLS = 20_000
@@ -1896,16 +1895,15 @@ export interface DesktopApi {
   consumeNewBlankWorkbook(): Promise<boolean>
   getAiSettings(): Promise<AiSettings>
   setAiSettings(settings: AiSettings): Promise<void>
+  aiSelectConnection(id: string, model: string): Promise<AiSettings>
+  aiSaveApiKey(key: string, model?: string): Promise<AiSettings>
+  aiStartOAuth(): Promise<void>
+  aiOAuthStatus(): Promise<AiSettings>
+  aiDisconnectConnection(id: string): Promise<AiSettings>
   aiChat(request: AiChatRequest): Promise<AiChatResponse>
   /// start a streaming AI call; deltas arrive via onAiStream with the same requestId
   aiStream(request: AiStreamRequest): Promise<void>
   aiStreamCancel(requestId: string): Promise<void>
-  /// Genspark account status (gsk login state); withEmail also returns the email
-  /// (needs a network request, slower)
-  aiGskStatus(withEmail?: boolean): Promise<GenSparkAccountStatus>
-  /// Opens the browser to sign in to Genspark (fire-and-forget; aiGskStatus
-  /// becomes signed-in on completion)
-  aiGskLogin(): Promise<void>
   /// Web search (main-process Serper/DuckDuckGo, shared with docs/slides)
   webSearch(query: string, maxResults?: number): Promise<WebSearchResult>
   onAiStream(handler: (chunk: AiStreamChunk) => void): () => void

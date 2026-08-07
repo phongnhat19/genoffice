@@ -1,10 +1,17 @@
 import type { AgentMessage, AgentToolCall, AgentToolDef } from '@genoffice/agent-core'
 
-export type AiProviderId = 'genspark' | 'anthropic' | 'gemini' | 'deepseek' | 'openai' | 'custom'
+export type AiProviderId = 'anthropic' | 'gemini' | 'deepseek' | 'openai' | 'custom'
+export type AiAuthType = 'oauth' | 'api-key'
+export type AiConnectionStatus = 'connected' | 'needs-auth' | 'expired' | 'connecting' | 'disconnected'
 
-/** Genspark account status (gsk login state; the sole auth source for AI features) */
-export interface GenSparkAccountStatus {
-  loggedIn: boolean
+/** Non-secret connection metadata which may be exposed to a renderer. */
+export interface AiProviderConnectionView {
+  id: string
+  providerId: AiProviderId
+  authType: AiAuthType
+  enabled: boolean
+  model: string
+  status: AiConnectionStatus
   email?: string
 }
 
@@ -13,6 +20,10 @@ export interface AiProviderConfig {
   model: string
   /** only used by the custom (OpenAI-compatible) provider */
   baseUrl?: string | undefined
+  /** Main-process-only credential mode. Renderers never receive its credential. */
+  authType?: AiAuthType | undefined
+  /** Main-process-only stable connection key for provider session affinity. */
+  connectionId?: string | undefined
 }
 
 export interface AiProviderMeta {
@@ -27,6 +38,8 @@ export interface AiProviderMeta {
 export interface AiSettings {
   provider: AiProviderId
   providers: Record<AiProviderId, AiProviderConfig>
+  selectedConnectionId?: string | undefined
+  connections?: AiProviderConnectionView[] | undefined
 }
 
 /** pre-provider settings shape (single OpenAI-compatible endpoint); migrated into "custom" */

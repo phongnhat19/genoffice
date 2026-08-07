@@ -23,7 +23,8 @@ import { renderSlidesToPngBase64 } from '../export-render'
 import { isQcEnabled, mergeQcPages, qcSlidePage, QC_MAX_PAGES } from './slide-qc'
 import { useI18n, t as tGlobal, aiLangDirective, type TFunc } from '../i18n/locale'
 import { Markdown } from '@genoffice/ui'
-import { GensparkMark } from '../components/icons'
+import { AiProviderControls } from '@genoffice/ui'
+import { OrioMark } from '../components/icons'
 import sendEnterOn from '../assets/send-enter-on.png'
 import sendEnterOff from '../assets/send-enter-off.png'
 import sendStop from '../assets/send-stop.png'
@@ -328,6 +329,7 @@ export function AiPanel({
   currentFilePath,
 }: AiPanelProps) {
   const { t } = useI18n()
+  const [providerSettings, setProviderSettings] = useState(settings)
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [chat, setChat] = useState<ChatEntry[]>([])
@@ -1182,22 +1184,6 @@ export function AiPanel({
             }
             return next
           })
-          // Signed-out failures get an inline sign-in button; detected via
-          // gsk status rather than matching the localized error text
-          void window.slidesApi
-            .aiGskStatus()
-            .then((status) => {
-              if (status.loggedIn) return
-              setChat((prev) => {
-                const next = [...prev]
-                const last = next.at(-1)
-                if (last?.role === 'assistant' && last.error) {
-                  next[next.length - 1] = { ...last, loginRequired: true }
-                }
-                return next
-              })
-            })
-            .catch(() => {})
           void finishHistoryBatch().finally(() => setBusy(false))
         },
       },
@@ -1547,7 +1533,7 @@ export function AiPanel({
   if (!open) {
     return (
       <button className="ai-rail" title={t('appAiRailExpand')} onClick={onExpand}>
-        <GensparkMark size={22} />
+        <OrioMark size={22} />
       </button>
     )
   }
@@ -1574,12 +1560,12 @@ export function AiPanel({
         onPointerDown={startResize}
         role="separator"
         aria-orientation="vertical"
-        aria-label="Genspark AI"
+        aria-label="Smart Office"
       />
       <div className="ai-panel-header">
         <span className="ai-panel-title">
-          <GensparkMark size={22} />
-          {t('aiPanelTitle')}
+          <OrioMark size={22} />
+          Smart Office
         </span>
         <div className="ai-panel-header-actions">
           {chat.length > 0 && (
@@ -1676,11 +1662,6 @@ export function AiPanel({
               {entry.tools && entry.tools.length > 0 && <ToolChipList tools={entry.tools} />}
               {entry.error && (
                 <div className="ai-msg-error">{t('aiMsgError', { error: entry.error })}</div>
-              )}
-              {entry.loginRequired && (
-                <button className="ai-login-btn" onClick={() => void window.slidesApi.aiGskLogin()}>
-                  {t('aiGskLoginBtn')}
-                </button>
               )}
               {entry.deckProgress && <DeckProgressCard progress={entry.deckProgress} />}
               {showToolbar && (
@@ -1798,6 +1779,7 @@ export function AiPanel({
         <div className="ai-composer">
           {attachNotice && <div className="ai-attach-notice">{attachNotice}</div>}
           <div className="ai-input-box">
+            <AiProviderControls settings={providerSettings} onSettings={setProviderSettings} />
             {attachments.length > 0 && (
               <div className="ai-attachments" onScroll={onAttachmentsScroll}>
                 {attachments.map((a) =>

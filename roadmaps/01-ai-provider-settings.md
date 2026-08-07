@@ -116,10 +116,41 @@ credential. OpenAI describes “Sign in with ChatGPT” as an identity integrati
 it can share basic profile information with a supported external app, but it does
 not independently grant access to ChatGPT conversations, memory, files, tokens,
 billing, or other account data. As of this roadmap, OpenAI's public guidance says
-the capability is rolling out first to OpenAI Academy and Codex Sites; GenOffice
-must obtain eligibility and integration details from OpenAI before implementation.
+the capability is available to authenticated ChatGPT users through participating
+partner sites and is rolling out to select partners. The public list includes
+OpenAI Academy, Codex Sites, Airtable, GitLab, HubSpot, Notion, Supabase, and
+Vercel. GenOffice is not a participating partner, and OpenAI has not published a
+self-service developer registration or OAuth protocol reference for third-party
+applications. GenOffice must obtain eligibility and integration details from
+OpenAI before implementation.
 
 Source: [OpenAI Help — Sign in with ChatGPT](https://help.openai.com/en/articles/20001410-sign-in-with-chatgpt).
+
+#### Eligibility and commercial decision — researched 2026-08-07
+
+- **No company ChatGPT license is publicly documented as a prerequisite for an
+  external app developer.** A personal ChatGPT account is sufficient for a user
+  to use the feature where a supported partner offers it. A ChatGPT Business,
+  Enterprise, or Edu subscription only adds organization-level controls; it does
+  not make GenOffice a supported relying party.
+- **Do not buy a ChatGPT Business/Enterprise license to unblock implementation.**
+  It would be relevant only if GenOffice's own organization needs to control its
+  members' use of third-party sign-in. Global administrators can disable the
+  feature or require each external app to be approved.
+- **The actual blocker is partner enablement, not a published plan or license.**
+  Before UI or protocol work starts, get written confirmation from OpenAI that
+  GenOffice can participate, plus the client registration, allowed redirect URI
+  types, issuer/discovery metadata, scopes/claims, token and refresh behavior,
+  revocation/disconnect behavior, privacy/security review requirements, branding
+  rules, supported regions, and production approval process.
+- **Do not infer access from Codex CLI.** Its “Sign in with ChatGPT” flow is a
+  first-party/special integration which may create an API key; that is different
+  from the general partner identity sign-in described above and is not a pattern
+  that GenOffice may reuse.
+
+Sources: [Sign in with ChatGPT](https://help.openai.com/en/articles/20001410-sign-in-with-chatgpt),
+[Global Admin Console](https://help.openai.com/en/articles/12289294-global-admin-console), and
+[Codex CLI and Sign in with ChatGPT](https://help.openai.com/en/articles/11381614-api-codex-cli-and-sign-in-with-chatgpt).
 
 The product requirements are:
 
@@ -130,10 +161,10 @@ The product requirements are:
 - Do not make model availability, quota, billing, or provider selection depend on
   this login. Model calls still require a separately configured supported
   credential, such as the OpenAI API key.
-- Hide or disable the feature until GenOffice has an OpenAI-issued client
+- Hide the feature entirely until GenOffice has an OpenAI-issued client
   registration, permitted redirect URI(s), documented scopes, and production
-  approval. The settings view should state that the integration is unavailable
-  rather than exposing a non-functional sign-in button.
+  approval. Do not expose a non-functional sign-in button. A support/settings
+  page may state that this connection is not yet available.
 
 If OpenAI approves the integration, implement it in the main process using the
 authorization-code flow with PKCE:

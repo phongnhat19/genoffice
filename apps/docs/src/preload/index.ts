@@ -64,11 +64,14 @@ const api: DesktopApi = {
     ipcRenderer.invoke('docs:save-merged-pdf', defaultName, base64Parts, outPath),
   getAiSettings: () => ipcRenderer.invoke('ai:get-settings'),
   setAiSettings: (settings: AiSettings) => ipcRenderer.invoke('ai:set-settings', settings),
+  aiSelectConnection: (id: string, model: string) => ipcRenderer.invoke('ai:select-connection', id, model),
+  aiSaveApiKey: (key: string, model?: string) => ipcRenderer.invoke('ai:save-api-key', key, model),
+  aiStartOAuth: () => ipcRenderer.invoke('ai:oauth-start'),
+  aiOAuthStatus: () => ipcRenderer.invoke('ai:oauth-status'),
+  aiDisconnectConnection: (id: string) => ipcRenderer.invoke('ai:disconnect-connection', id),
   aiChat: (request: AiChatRequest) => ipcRenderer.invoke('ai:chat', request),
   aiStream: (request: AiStreamRequest) => ipcRenderer.invoke('ai:stream', request),
   aiStreamCancel: (requestId: string) => ipcRenderer.invoke('ai:stream-cancel', requestId),
-  aiGskStatus: (withEmail?: boolean) => ipcRenderer.invoke('ai:gsk-status', withEmail),
-  aiGskLogin: () => ipcRenderer.invoke('ai:gsk-login'),
   webSearch: (query: string, maxResults?: number) =>
     ipcRenderer.invoke('ai:web-search', query, maxResults),
   imageSearch: (query: string, maxResults?: number) =>

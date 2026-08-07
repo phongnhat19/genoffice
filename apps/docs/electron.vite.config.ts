@@ -14,6 +14,10 @@ export default defineConfig({
   renderer: {
     plugins: [react()],
     server: {
+      // Electron and Vite can resolve `localhost` to different loopback families
+      // on macOS. Pin the dev server to IPv4 so the URL passed to Electron is
+      // always reachable instead of intermittently failing with ERR_CONNECTION_REFUSED.
+      host: '127.0.0.1',
       // Overridable so multiple genoffice dev instances can coexist (default 5173).
       port: Number(process.env.DOCS_DEV_PORT) || 5173,
       strictPort: Boolean(process.env.DOCS_DEV_PORT),

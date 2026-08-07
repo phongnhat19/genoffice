@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import {
   CaretIcon,
-  GensparkMark,
+  OrioMark,
   RIBBON_GLYPH_ICONS,
   RedoIcon,
   SaveIcon,
@@ -19,6 +19,7 @@ import { type SelectionFormat } from './selection-format'
 import type { ChartSeriesVisualState } from '../domain/chart-visual'
 import type { ChangePlan } from '../domain/workbook.types'
 import type { AttachmentMeta } from '../shared/desktop-api'
+import type { AiSettings } from '@genoffice/ai-provider'
 import { AiChatPanel, type AiChatMessage } from './ai/AiChatPanel'
 import {
   PivotDialog,
@@ -118,6 +119,8 @@ function ToolSymbol({ symbol }: { readonly symbol: string }): React.JSX.Element 
 }
 
 interface ExcelShellProps {
+  readonly aiSettings?: AiSettings | null
+  readonly onAiSettings?: (settings: AiSettings) => void
   readonly prompt: string
   readonly preview: ChangePlan | null
   readonly selectionFormat: SelectionFormat | null
@@ -216,6 +219,8 @@ export interface PageLayoutEcho {
 }
 
 export function ExcelShell({
+  aiSettings,
+  onAiSettings,
   prompt,
   preview,
   selectionFormat,
@@ -418,6 +423,8 @@ export function ExcelShell({
       {/* AI panel docks on the left, full height under the ribbon (unified with docs) */}
       <div className="sheet-body">
         <AiChatPanel
+          settings={aiSettings}
+          {...(onAiSettings ? { onSettings: onAiSettings } : {})}
           isOpen={isCopilotOpen}
           hasContent={sheetHasContent}
           chat={chat}
@@ -2059,10 +2066,10 @@ function Ribbon({
           onClick={onAiToggle}
         >
           <span className="tool-icon-row">
-            <GensparkMark size={26} />
+            <OrioMark size={26} />
           </span>
           <span>
-            <strong>Genspark AI</strong>
+            <strong>Smart Office AI</strong>
           </span>
         </button>
         <button
