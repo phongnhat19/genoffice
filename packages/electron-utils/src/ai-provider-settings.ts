@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import {
   defaultAiSettings,
+  CLAUDE_MODELS,
   OPENAI_CODEX_MODELS,
   OPENROUTER_MODELS,
   type AiConnectionStatus,
@@ -19,6 +20,11 @@ const CODEX_AUTHORIZE_URL = 'https://auth.openai.com/oauth/authorize'
 const CODEX_TOKEN_URL = 'https://auth.openai.com/oauth/token'
 // Codex CLI's public OAuth client/loopback redirect, mirrored from 9router's Codex provider.
 const CODEX_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann'
+const CLAUDE_AUTHORIZE_URL = 'https://claude.ai/oauth/authorize'
+const CLAUDE_TOKEN_URL = 'https://api.anthropic.com/v1/oauth/token'
+const CLAUDE_CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e'
+const CLAUDE_REFRESH_LEAD_MS = 4 * 60 * 60 * 1000
+type OAuthConnectionId = 'openai-oauth' | 'claude-oauth'
 
 type Credential = {
   apiKey?: string
@@ -53,6 +59,14 @@ function defaultStore(): PersistedStore {
     version: 2,
     selectedConnectionId: 'openai-oauth',
     connections: [
+      {
+        id: 'claude-oauth',
+        providerId: 'anthropic',
+        authType: 'oauth',
+        enabled: false,
+        model: CLAUDE_MODELS[0],
+        status: 'disconnected',
+      },
       {
         id: 'openai-oauth',
         providerId: 'openai',
@@ -89,8 +103,8 @@ function b64(bytes: number): string {
 }
 function validConnectionId(
   value: unknown,
-): value is 'openai-oauth' | 'openai-api-key' | 'openrouter-api-key' {
-  return value === 'openai-oauth' || value === 'openai-api-key' || value === 'openrouter-api-key'
+): value is 'claude-oauth' | 'openai-oauth' | 'openai-api-key' | 'openrouter-api-key' {
+  return value === 'claude-oauth' || value === 'openai-oauth' || value === 'openai-api-key' || value === 'openrouter-api-key'
 }
 
 /** Pure OAuth URL builder so the protocol can be verified without opening a loopback listener. */
@@ -114,10 +128,25 @@ export function buildCodexAuthorizeUrl(
   return `${CODEX_AUTHORIZE_URL}?${query}`
 }
 
+/** Claude Code-compatible PKCE URL; token exchange is JSON rather than form encoded. */
+export function buildClaudeAuthorizeUrl(state: string, verifier: string, redirectUri: string): string {
+  const query = new URLSearchParams({
+    code: 'true',
+    client_id: CLAUDE_CLIENT_ID,
+    response_type: 'code',
+    redirect_uri: redirectUri,
+    scope: 'org:create_api_key user:profile user:inference',
+    state,
+    code_challenge: hash(verifier),
+    code_challenge_method: 'S256',
+  })
+  return `${CLAUDE_AUTHORIZE_URL}?${query}`
+}
+
 /** Suite-wide, encrypted connection metadata store. Credentials never leave this class. */
 export class AiProviderSettingsService {
   private oauth:
-    | { server: Server; state: string; verifier: string; redirectUri: string; expiresAt: number }
+    | { server: Server; connectionId: OAuthConnectionId; state: string; verifier: string; redirectUri: string; expiresAt: number }
     | undefined
   constructor(private readonly options: ProviderSettingsOptions) {}
 
@@ -219,7 +248,9 @@ export class AiProviderSettingsService {
     const store = this.read()
     const connection = this.connection(store, id)
     const allowed =
-      connection.id === 'openai-oauth'
+      connection.id === 'claude-oauth'
+        ? CLAUDE_MODELS
+        : connection.id === 'openai-oauth'
         ? OPENAI_CODEX_MODELS
         : connection.id === 'openrouter-api-key'
           ? OPENROUTER_API_MODELS
@@ -262,7 +293,11 @@ export class AiProviderSettingsService {
     return this.view()
   }
 
-  async startOAuth(): Promise<void> {
+  async startOAuth(connectionId: unknown, acknowledgedRisk = false): Promise<void> {
+    if (connectionId !== 'openai-oauth' && connectionId !== 'claude-oauth')
+      throw new Error('This connection does not use OAuth.')
+    if (connectionId === 'claude-oauth' && acknowledgedRisk !== true)
+      throw new Error('Confirm the Claude Code OAuth risk notice before signing in.')
     if (this.oauth && this.oauth.expiresAt > Date.now()) return
     const state = b64(32),
       verifier = b64(64)
@@ -270,12 +305,15 @@ export class AiProviderSettingsService {
       (request, response) => void this.handleCallback(request.url ?? '', response),
     )
     await new Promise<void>((resolve, reject) =>
-      server.once('error', reject).listen(1455, '127.0.0.1', () => resolve()),
+      server.once('error', reject).listen(connectionId === 'openai-oauth' ? 1455 : 0, '127.0.0.1', () => resolve()),
     )
-    const redirectUri = 'http://localhost:1455/auth/callback'
-    this.oauth = { server, state, verifier, redirectUri, expiresAt: Date.now() + 5 * 60_000 }
+    const port = (server.address() as { port: number }).port
+    const redirectUri = connectionId === 'openai-oauth'
+      ? 'http://localhost:1455/auth/callback'
+      : `http://127.0.0.1:${port}/callback`
+    this.oauth = { server, connectionId, state, verifier, redirectUri, expiresAt: Date.now() + 5 * 60_000 }
     const store = this.read()
-    const connection = this.connection(store, 'openai-oauth')
+    const connection = this.connection(store, connectionId)
     connection.status = 'connecting'
     this.write(store)
     const expiry = setTimeout(() => {
@@ -283,12 +321,16 @@ export class AiProviderSettingsService {
       this.oauth.server.close()
       this.oauth = undefined
       const expired = this.read()
-      this.connection(expired, 'openai-oauth').status = 'expired'
+      this.connection(expired, connectionId).status = 'expired'
       this.write(expired)
     }, 5 * 60_000)
     expiry.unref()
     try {
-      await this.options.openExternal(buildCodexAuthorizeUrl(state, verifier, redirectUri))
+      await this.options.openExternal(
+        connectionId === 'openai-oauth'
+          ? buildCodexAuthorizeUrl(state, verifier, redirectUri)
+          : buildClaudeAuthorizeUrl(state, verifier, redirectUri),
+      )
     } catch (error) {
       clearTimeout(expiry)
       server.close()
@@ -307,7 +349,7 @@ export class AiProviderSettingsService {
     const params = new URL(url, 'http://127.0.0.1').searchParams
     const finish = (ok: boolean, message: string) => {
       response.writeHead(ok ? 200 : 400, { 'content-type': 'text/html; charset=utf-8' })
-      response.end(`<h2>${message}</h2><p>You can return to ORIO.</p>`)
+      response.end(`<h2>${message}</h2><p>You can return to Smart Office.</p>`)
       oauth?.server.close()
       this.oauth = undefined
     }
@@ -322,45 +364,59 @@ export class AiProviderSettingsService {
       return
     }
     try {
-      const token = await this.exchange({
+      const token = await this.exchange(oauth.connectionId, {
         grant_type: 'authorization_code',
         code: params.get('code')!,
         redirect_uri: oauth.redirectUri,
         code_verifier: oauth.verifier,
+        ...(oauth.connectionId === 'claude-oauth' ? { state: oauth.state } : {}),
       })
       const store = this.read()
-      const connection = this.connection(store, 'openai-oauth')
+      const connection = this.connection(store, oauth.connectionId)
       connection.credential = this.encrypt(token)
       connection.enabled = true
       connection.status = 'connected'
       store.selectedConnectionId = connection.id
       this.write(store)
-      finish(true, 'OpenAI is connected.')
+      finish(true, oauth.connectionId === 'claude-oauth' ? 'Claude is connected.' : 'OpenAI is connected.')
     } catch {
       const store = this.read()
-      this.connection(store, 'openai-oauth').status = 'expired'
+      this.connection(store, oauth.connectionId).status = 'expired'
       this.write(store)
       finish(false, 'Sign-in failed. Please try again.')
     }
   }
 
-  private async exchange(body: Record<string, string>): Promise<Credential> {
-    const response = await fetch(CODEX_TOKEN_URL, {
+  private async exchange(
+    connectionId: OAuthConnectionId,
+    body: Record<string, string>,
+    previousRefreshToken?: string,
+  ): Promise<Credential> {
+    const isClaude = connectionId === 'claude-oauth'
+    const code = body.code
+    const [authCode = '', hashState = ''] = code?.split('#') ?? []
+    const payload = isClaude && code
+      ? { ...body, code: authCode, state: hashState || body.state || '' }
+      : body
+    const response = await fetch(isClaude ? CLAUDE_TOKEN_URL : CODEX_TOKEN_URL, {
       method: 'POST',
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ client_id: CODEX_CLIENT_ID, ...body }),
+      headers: { 'content-type': isClaude ? 'application/json' : 'application/x-www-form-urlencoded', accept: 'application/json' },
+      body: isClaude
+        ? JSON.stringify({ client_id: CLAUDE_CLIENT_ID, ...payload })
+        : new URLSearchParams({ client_id: CODEX_CLIENT_ID, ...payload }),
     })
-    if (!response.ok) throw new Error('OpenAI token exchange failed.')
+    if (!response.ok) throw new Error(`${isClaude ? 'Claude' : 'OpenAI'} token exchange failed.`)
     const value = (await response.json()) as {
       access_token?: string
       refresh_token?: string
       expires_in?: number
     }
-    if (!value.access_token || !value.refresh_token)
-      throw new Error('OpenAI did not return a renewable credential.')
+    const refreshToken = value.refresh_token ?? previousRefreshToken
+    if (!value.access_token || !refreshToken)
+      throw new Error(`${isClaude ? 'Claude' : 'OpenAI'} did not return a renewable credential.`)
     return {
       accessToken: value.access_token,
-      refreshToken: value.refresh_token,
+      refreshToken,
       expiresAt: Date.now() + Math.max(60, value.expires_in ?? 3600) * 1000,
     }
   }
@@ -368,18 +424,19 @@ export class AiProviderSettingsService {
   async oauthStatus(): Promise<AiSettings> {
     return this.view()
   }
-  async refreshSelectedOAuth(): Promise<boolean> {
+  async refreshOAuthConnection(connectionId: unknown): Promise<boolean> {
+    if (connectionId !== 'openai-oauth' && connectionId !== 'claude-oauth') return false
     const store = this.read()
-    const connection = this.connection(store, store.selectedConnectionId)
-    if (connection.id !== 'openai-oauth') return false
+    const connection = this.connection(store, connectionId)
     const credential = this.decrypt(connection)
     if (!credential.refreshToken) return false
     try {
       connection.credential = this.encrypt(
-        await this.exchange({
-          grant_type: 'refresh_token',
-          refresh_token: credential.refreshToken,
-        }),
+        await this.exchange(
+          connectionId,
+          { grant_type: 'refresh_token', refresh_token: credential.refreshToken },
+          credential.refreshToken,
+        ),
       )
       connection.status = 'connected'
       connection.enabled = true
@@ -390,6 +447,10 @@ export class AiProviderSettingsService {
       this.write(store)
       return false
     }
+  }
+  async refreshSelectedOAuth(): Promise<boolean> {
+    const store = this.read()
+    return this.refreshOAuthConnection(store.selectedConnectionId)
   }
   async config(): Promise<{
     provider: AiProviderId
@@ -402,11 +463,11 @@ export class AiProviderSettingsService {
       return { provider: connection.providerId, connectionId: connection.id }
     const credential = this.decrypt(connection)
     if (
-      connection.id === 'openai-oauth' &&
+      (connection.id === 'openai-oauth' || connection.id === 'claude-oauth') &&
       credential.refreshToken &&
-      (!credential.expiresAt || credential.expiresAt < Date.now() + 60_000)
+      (!credential.expiresAt || credential.expiresAt < Date.now() + (connection.id === 'claude-oauth' ? CLAUDE_REFRESH_LEAD_MS : 60_000))
     ) {
-      if (!(await this.refreshSelectedOAuth()))
+      if (!(await this.refreshOAuthConnection(connection.id)))
         return { provider: connection.providerId, connectionId: connection.id }
       return this.config()
     }
@@ -416,7 +477,7 @@ export class AiProviderSettingsService {
       connectionId: connection.id,
       config: {
         apiKey:
-          connection.id === 'openai-oauth' ? (current.accessToken ?? '') : (current.apiKey ?? ''),
+          connection.authType === 'oauth' ? (current.accessToken ?? '') : (current.apiKey ?? ''),
         model: connection.model,
         authType: connection.authType,
         connectionId: connection.id,

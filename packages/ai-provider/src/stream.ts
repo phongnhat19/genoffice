@@ -1,6 +1,7 @@
 import type { AgentMessage, AgentToolCall, AgentToolDef } from '@genoffice/agent-core'
 import { httpBodyDetail } from './http-error'
 import { streamOpenAiCodex } from './codex'
+import { streamClaudeOAuth } from './claude-oauth'
 import type { AiProviderConfig, AiProviderId } from './types'
 import { createStreamWatchdog, type StreamWatchdog } from './watchdog'
 
@@ -34,6 +35,13 @@ export interface StreamCallbacks {
   /** bytes arrived on the wire (fires per network chunk, including SSE pings; used for keepalive) */
   onActivity?: () => void
   signal: AbortSignal
+}
+
+/** Internal extension point for the Claude Code-compatible OAuth transport. */
+export interface AnthropicStreamOptions {
+  headers?: Record<string, string>
+  transformBody?: (body: Record<string, unknown>) => Record<string, unknown>
+  mapToolName?: (name: string) => string
 }
 
 /**
@@ -200,7 +208,11 @@ function anthropicMessages(messages: AgentMessage[]): unknown[] {
 }
 
 /** Emits a complete (non-streamed) Anthropic message delivered as a plain JSON body. */
-function emitAnthropicJsonMessage(bodyText: string, cb: StreamCallbacks): void {
+function emitAnthropicJsonMessage(
+  bodyText: string,
+  cb: StreamCallbacks,
+  mapToolName?: (name: string) => string,
+): void {
   let msg: {
     content?: Array<{
       type?: string
@@ -228,7 +240,7 @@ function emitAnthropicJsonMessage(bodyText: string, cb: StreamCallbacks): void {
       emitted = true
       toolCalls.push({
         id: block.id ?? crypto.randomUUID(),
-        name: block.name,
+        name: mapToolName ? mapToolName(block.name) : block.name,
         input: block.input ?? {},
       })
     }
@@ -249,9 +261,10 @@ export async function streamAnthropic(
   maxTokens: number,
   cb: StreamCallbacks,
   baseUrl = 'https://api.anthropic.com',
+  options?: AnthropicStreamOptions,
 ): Promise<void> {
   const wd = createStreamWatchdog(cb.signal)
-  return wd.guard(() => anthropicTurn(config, system, messages, tools, maxTokens, cb, baseUrl, wd))
+  return wd.guard(() => anthropicTurn(config, system, messages, tools, maxTokens, cb, baseUrl, wd, options))
 }
 
 async function anthropicTurn(
@@ -263,6 +276,7 @@ async function anthropicTurn(
   cb: StreamCallbacks,
   baseUrl: string,
   wd: StreamWatchdog,
+  options?: AnthropicStreamOptions,
 ): Promise<void> {
   const onBytes = () => {
     wd.touch()
@@ -270,34 +284,29 @@ async function anthropicTurn(
   }
   let response: Response
   try {
-    response = await fetch(`${baseUrl.replace(/\/$/, '')}/v1/messages`, {
+    const body: Record<string, unknown> = {
+      model: config.model,
+      max_tokens: maxTokens,
+      system,
+      messages: anthropicMessages(messages),
+      ...(tools.length > 0
+        ? { tools: tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.inputSchema })) }
+        : {}),
+      stream: true,
+    }
+    response = await fetch(`${baseUrl.replace(/\/$/, '')}/v1/messages${config.authType === 'oauth' ? '?beta=true' : ''}`, {
       method: 'POST',
       signal: wd.signal,
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': config.apiKey,
+        ...(options?.headers ?? { 'x-api-key': config.apiKey }),
         'anthropic-version': '2023-06-01',
         // Fetch in the Electron main process goes through Chromium's network stack, which adds
         // browser-semantics headers; Anthropic rejects those with 403 "Request not allowed". This
         // header is the official opt-in for direct access from browser/Electron environments.
         'anthropic-dangerous-direct-browser-access': 'true',
       },
-      body: JSON.stringify({
-        model: config.model,
-        max_tokens: maxTokens,
-        system,
-        messages: anthropicMessages(messages),
-        ...(tools.length > 0
-          ? {
-              tools: tools.map((t) => ({
-                name: t.name,
-                description: t.description,
-                input_schema: t.inputSchema,
-              })),
-            }
-          : {}),
-        stream: true,
-      }),
+      body: JSON.stringify(options?.transformBody ? options.transformBody(body) : body),
     })
   } catch (e) {
     // When fetch fails in the Electron main process, the real reason lives in `cause`
@@ -315,7 +324,7 @@ async function anthropicTurn(
   const jsonBody = await jsonBodyInsteadOfSse(response)
   if (jsonBody !== null) {
     throwIfCreditsNotice(jsonBody)
-    return emitAnthropicJsonMessage(jsonBody, cb)
+    return emitAnthropicJsonMessage(jsonBody, cb, options?.mapToolName)
   }
   // tool_use inputs stream as partial JSON per content block
   const pendingTools = new Map<number, { id: string; name: string; json: string }>()
@@ -338,7 +347,9 @@ async function anthropicTurn(
     if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
       pendingTools.set(event.index ?? 0, {
         id: event.content_block.id ?? crypto.randomUUID(),
-        name: event.content_block.name ?? '',
+        name: options?.mapToolName
+          ? options.mapToolName(event.content_block.name ?? '')
+          : (event.content_block.name ?? ''),
         json: '',
       })
     } else if (event.type === 'content_block_delta') {
@@ -850,6 +861,9 @@ export async function streamForProvider(
 ): Promise<void> {
   if (provider === 'openai' && config.authType === 'oauth') {
     return streamOpenAiCodex(config, system, messages, tools, maxTokens, cb)
+  }
+  if (provider === 'anthropic' && config.authType === 'oauth') {
+    return streamClaudeOAuth(config, system, messages, tools, maxTokens, cb)
   }
   switch (provider) {
     case 'anthropic':

@@ -223,8 +223,8 @@ const desktopApi: DesktopApi = {
     if (!isRecord(result)) throw new Error('Invalid AI settings response.')
     return result as unknown as AiSettings
   },
-  async aiStartOAuth() {
-    await ipcRenderer.invoke('ai:oauth-start')
+  async aiStartOAuth(connectionId: string, acknowledgedRisk: boolean) {
+    await ipcRenderer.invoke('ai:oauth-start', connectionId, acknowledgedRisk)
   },
   async aiOAuthStatus() {
     const result: unknown = await ipcRenderer.invoke('ai:oauth-status')

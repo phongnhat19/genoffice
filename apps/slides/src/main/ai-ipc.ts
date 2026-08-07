@@ -62,7 +62,9 @@ export function registerAiIpc(): void {
   ipcMain.handle('ai:save-api-key', (_event, id: unknown, key: unknown, model?: unknown) =>
     providerSettings.saveApiKey(id, key, model),
   )
-  ipcMain.handle('ai:oauth-start', () => providerSettings.startOAuth())
+  ipcMain.handle('ai:oauth-start', (_event, connectionId: unknown, acknowledgedRisk?: unknown) =>
+    providerSettings.startOAuth(connectionId, acknowledgedRisk === true),
+  )
   ipcMain.handle('ai:oauth-status', () => providerSettings.oauthStatus())
   ipcMain.handle('ai:disconnect-connection', (_event, id: unknown) =>
     providerSettings.disconnect(id),
@@ -112,10 +114,10 @@ export function registerAiIpc(): void {
         await stream()
       } catch (err) {
         if (
-          provider === 'openai' &&
+          (provider === 'openai' || provider === 'anthropic') &&
           config.authType === 'oauth' &&
-          /Codex HTTP 401|Codex HTTP 403/.test(String(err)) &&
-          (await providerSettings.refreshSelectedOAuth())
+          /(?:Codex|Claude) HTTP 401|(?:Codex|Claude) HTTP 403/.test(String(err)) &&
+          (await providerSettings.refreshOAuthConnection(resolved.connectionId))
         ) {
           const retried = await providerSettings.config()
           if (!retried.config) throw err

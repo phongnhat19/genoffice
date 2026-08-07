@@ -269,7 +269,8 @@ const api: SlidesApi = {
     ipcRenderer.invoke('ai:select-connection', id, model),
   aiSaveApiKey: (id: string, key: string, model?: string) =>
     ipcRenderer.invoke('ai:save-api-key', id, key, model),
-  aiStartOAuth: () => ipcRenderer.invoke('ai:oauth-start'),
+  aiStartOAuth: (connectionId: string, acknowledgedRisk: boolean) =>
+    ipcRenderer.invoke('ai:oauth-start', connectionId, acknowledgedRisk),
   aiOAuthStatus: () => ipcRenderer.invoke('ai:oauth-status'),
   aiDisconnectConnection: (id: string) => ipcRenderer.invoke('ai:disconnect-connection', id),
   aiStream: (request: AiStreamRequest) => ipcRenderer.invoke('ai:stream', request),

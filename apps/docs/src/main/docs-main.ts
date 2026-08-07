@@ -2506,7 +2506,9 @@ export function registerAiIpc(): void {
   ipcMain.handle('ai:save-api-key', (_event, id: unknown, key: unknown, model?: unknown) =>
     providerSettings.saveApiKey(id, key, model),
   )
-  ipcMain.handle('ai:oauth-start', () => providerSettings.startOAuth())
+  ipcMain.handle('ai:oauth-start', (_event, connectionId: unknown, acknowledgedRisk?: unknown) =>
+    providerSettings.startOAuth(connectionId, acknowledgedRisk === true),
+  )
   ipcMain.handle('ai:oauth-status', () => providerSettings.oauthStatus())
   ipcMain.handle('ai:disconnect-connection', (_event, id: unknown) =>
     providerSettings.disconnect(id),
@@ -2561,10 +2563,10 @@ export function registerAiIpc(): void {
       } catch (err) {
         // Codex access tokens can be revoked early. Refresh exactly once before surfacing the error.
         if (
-          provider === 'openai' &&
+          (provider === 'openai' || provider === 'anthropic') &&
           config.authType === 'oauth' &&
-          /Codex HTTP 401|Codex HTTP 403/.test(String(err)) &&
-          (await providerSettings.refreshSelectedOAuth())
+          /(?:Codex|Claude) HTTP 401|(?:Codex|Claude) HTTP 403/.test(String(err)) &&
+          (await providerSettings.refreshOAuthConnection(resolved.connectionId))
         ) {
           const retried = await providerSettings.config()
           if (!retried.config) throw err
@@ -2647,7 +2649,7 @@ export function registerAiIpc(): void {
     const { system, user } = request
     const resolved = await providerSettings.config()
     const provider = resolved.provider
-    const config = resolved.config
+    let config = resolved.config
     if (!config?.apiKey) {
       return {
         ok: false,
@@ -2656,7 +2658,21 @@ export function registerAiIpc(): void {
     }
     if (!config.model) return { ok: false, error: tm('errNoModel') }
     try {
-      return await chatForProvider(provider, config, system, user)
+      let response = await chatForProvider(provider, config, system, user)
+      if (
+        !response.ok &&
+        (provider === 'openai' || provider === 'anthropic') &&
+        config.authType === 'oauth' &&
+        /(?:Codex|Claude) HTTP 401|(?:Codex|Claude) HTTP 403/.test(response.error ?? '') &&
+        (await providerSettings.refreshOAuthConnection(resolved.connectionId))
+      ) {
+        const retried = await providerSettings.config()
+        if (retried.config) {
+          config = retried.config
+          response = await chatForProvider(provider, config, system, user)
+        }
+      }
+      return response
     } catch (err) {
       return { ok: false, error: String(err) }
     }

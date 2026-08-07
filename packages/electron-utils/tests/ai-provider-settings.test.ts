@@ -2,7 +2,11 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { AiProviderSettingsService, buildCodexAuthorizeUrl } from '../src/ai-provider-settings'
+import {
+  AiProviderSettingsService,
+  buildClaudeAuthorizeUrl,
+  buildCodexAuthorizeUrl,
+} from '../src/ai-provider-settings'
 
 const directories: string[] = []
 function service(initial?: unknown) {
@@ -68,6 +72,25 @@ describe('AiProviderSettingsService', () => {
     expect(url.searchParams.get('state')).toBe('state')
     expect(url.searchParams.get('code_challenge')).not.toBe('verifier')
   })
+
+  it('exposes the curated Claude OAuth connection and builds its PKCE authorization URL', async () => {
+    const { service: settings } = service()
+    const view = await settings.view()
+    expect(view.connections?.find((item) => item.id === 'claude-oauth')).toMatchObject({
+      providerId: 'anthropic', authType: 'oauth', enabled: false, status: 'disconnected',
+    })
+    const selected = await settings.select('claude-oauth', 'claude-opus-4-8')
+    expect(selected.selectedConnectionId).toBe('claude-oauth')
+    await expect(settings.startOAuth('claude-oauth')).rejects.toThrow('risk notice')
+
+    const url = new URL(buildClaudeAuthorizeUrl('state', 'verifier', 'http://127.0.0.1:3210/callback'))
+    expect(url.origin).toBe('https://claude.ai')
+    expect(url.searchParams.get('redirect_uri')).toBe('http://127.0.0.1:3210/callback')
+    expect(url.searchParams.get('code')).toBe('true')
+    expect(url.searchParams.get('scope')).toContain('user:inference')
+    expect(url.searchParams.get('code_challenge')).not.toBe('verifier')
+  })
+
 
   it('stores an OpenRouter key encrypted and resolves its selected model without exposing the key', async () => {
     const { path, service: settings } = service()

@@ -1279,7 +1279,7 @@ export interface SlidesApi {
   setAiSettings: (settings: AiSettings) => Promise<void>
   aiSelectConnection: (id: string, model: string) => Promise<AiSettings>
   aiSaveApiKey: (id: string, key: string, model?: string) => Promise<AiSettings>
-  aiStartOAuth: () => Promise<void>
+  aiStartOAuth: (connectionId: string, acknowledgedRisk: boolean) => Promise<void>
   aiOAuthStatus: () => Promise<AiSettings>
   aiDisconnectConnection: (id: string) => Promise<AiSettings>
   aiStream: (request: AiStreamRequest) => Promise<void>

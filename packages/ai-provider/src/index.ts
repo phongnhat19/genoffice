@@ -14,6 +14,7 @@ export type {
 } from './types'
 export {
   AI_PROVIDERS,
+  CLAUDE_MODELS,
   OPENAI_CODEX_MODELS,
   OPENROUTER_MODELS,
   defaultAiSettings,
@@ -24,6 +25,7 @@ export { AiCreditsError, sseLines, streamForProvider } from './stream'
 export type { StreamCallbacks } from './stream'
 export { streamOpenAiCodex } from './codex'
 export type { CodexStreamCallbacks } from './codex'
+export { streamClaudeOAuth } from './claude-oauth'
 export {
   AI_CHAT_RESPONSE_TIMEOUT_MS,
   AI_CONNECT_TIMEOUT_MS,

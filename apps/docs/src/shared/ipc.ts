@@ -175,7 +175,7 @@ export interface DesktopApi {
   setAiSettings(settings: AiSettings): Promise<void>
   aiSelectConnection(id: string, model: string): Promise<AiSettings>
   aiSaveApiKey(id: string, key: string, model?: string): Promise<AiSettings>
-  aiStartOAuth(): Promise<void>
+  aiStartOAuth(connectionId: string, acknowledgedRisk: boolean): Promise<void>
   aiOAuthStatus(): Promise<AiSettings>
   aiDisconnectConnection(id: string): Promise<AiSettings>
   /** system print dialog for the current window */

@@ -2030,7 +2030,9 @@ export function registerSheetsAiIpc(): void {
   ipcMain.handle('ai:save-api-key', (_event, id: unknown, key: unknown, model?: unknown) =>
     providerSettings.saveApiKey(id, key, model),
   )
-  ipcMain.handle('ai:oauth-start', () => providerSettings.startOAuth())
+  ipcMain.handle('ai:oauth-start', (_event, connectionId: unknown, acknowledgedRisk?: unknown) =>
+    providerSettings.startOAuth(connectionId, acknowledgedRisk === true),
+  )
   ipcMain.handle('ai:oauth-status', () => providerSettings.oauthStatus())
   ipcMain.handle('ai:disconnect-connection', (_event, id: unknown) =>
     providerSettings.disconnect(id),
@@ -2041,7 +2043,7 @@ export function registerSheetsAiIpc(): void {
     const request = aiChatRequestSchema.parse(input)
     const resolved = await providerSettings.config()
     const provider = resolved.provider
-    const config = resolved.config
+    let config = resolved.config
     if (!config?.apiKey) {
       return {
         ok: false,
@@ -2050,7 +2052,21 @@ export function registerSheetsAiIpc(): void {
     }
     if (!config.model) return { ok: false, error: tm('errNoModel') }
     try {
-      return await chatForProvider(provider, config, request.system, request.user)
+      let response = await chatForProvider(provider, config, request.system, request.user)
+      if (
+        !response.ok &&
+        (provider === 'openai' || provider === 'anthropic') &&
+        config.authType === 'oauth' &&
+        /(?:Codex|Claude) HTTP 401|(?:Codex|Claude) HTTP 403/.test(response.error ?? '') &&
+        (await providerSettings.refreshOAuthConnection(resolved.connectionId))
+      ) {
+        const retried = await providerSettings.config()
+        if (retried.config) {
+          config = retried.config
+          response = await chatForProvider(provider, config, request.system, request.user)
+        }
+      }
+      return response
     } catch (err) {
       return { ok: false, error: String(err) }
     }
@@ -2064,7 +2080,7 @@ export function registerSheetsAiIpc(): void {
     const maxTokens = request.maxTokens ?? 8192
     const resolved = await providerSettings.config()
     const provider = resolved.provider
-    const config = resolved.config
+    let config = resolved.config
     const send = (chunk: AiStreamChunk) => {
       if (!event.sender.isDestroyed()) event.sender.send(IPC_CHANNELS.aiStreamChunk, chunk)
     }
@@ -2091,12 +2107,27 @@ export function registerSheetsAiIpc(): void {
       send({ requestId, type: 'ping' })
     }
     try {
-      await streamForProvider(provider, config, system, messages, tools, maxTokens, {
-        signal: controller.signal,
-        onDelta: (text) => send({ requestId, type: 'delta', text }),
-        onToolCall: (toolCall) => send({ requestId, type: 'tool-call', toolCall }),
-        onActivity: ping,
-      })
+      const stream = () => streamForProvider(provider, config!, system, messages, tools, maxTokens, {
+          signal: controller.signal,
+          onDelta: (text) => send({ requestId, type: 'delta', text }),
+          onToolCall: (toolCall) => send({ requestId, type: 'tool-call', toolCall }),
+          onActivity: ping,
+        })
+      try {
+        await stream()
+      } catch (err) {
+        if (
+          (provider === 'openai' || provider === 'anthropic') &&
+          config.authType === 'oauth' &&
+          /(?:Codex|Claude) HTTP 401|(?:Codex|Claude) HTTP 403/.test(String(err)) &&
+          (await providerSettings.refreshOAuthConnection(resolved.connectionId))
+        ) {
+          const retried = await providerSettings.config()
+          if (!retried.config) throw err
+          config = retried.config
+          await stream()
+        } else throw err
+      }
       send({ requestId, type: 'done' })
     } catch (err) {
       if (controller.signal.aborted) {

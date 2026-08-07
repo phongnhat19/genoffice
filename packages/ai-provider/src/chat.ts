@@ -1,5 +1,6 @@
 import { httpBodyDetail } from './http-error'
 import { streamOpenAiCodex } from './codex'
+import { streamClaudeOAuth } from './claude-oauth'
 import type { AiChatResponse, AiProviderConfig, AiProviderId } from './types'
 import { AI_CHAT_RESPONSE_TIMEOUT_MS, createStreamWatchdog, type StreamWatchdog } from './watchdog'
 
@@ -135,6 +136,29 @@ async function chatOpenAiCodex(
   }
 }
 
+async function chatClaudeOAuth(
+  config: AiProviderConfig,
+  system: string,
+  user: string,
+  signal?: AbortSignal,
+): Promise<AiChatResponse> {
+  let content = ''
+  try {
+    await streamClaudeOAuth(config, system, [{ role: 'user', text: user }], [], 8192, {
+      signal: signal ?? new AbortController().signal,
+      onDelta: (text) => {
+        content += text
+      },
+      onToolCall: () => undefined,
+    })
+    return content
+      ? { ok: true, content }
+      : { ok: false, error: 'Claude returned an empty response' }
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) }
+  }
+}
+
 const OPENAI_COMPATIBLE_BASE_URLS: Partial<Record<AiProviderId, string>> = {
   deepseek: 'https://api.deepseek.com/v1',
   openai: 'https://api.openai.com/v1',
@@ -155,6 +179,7 @@ export async function chatForProvider(
   return wd.guard(() => {
     switch (provider) {
       case 'anthropic':
+        if (config.authType === 'oauth') return chatClaudeOAuth(config, system, user, wd.signal)
         return chatAnthropic(wd, config, system, user)
       case 'gemini':
         return chatGemini(wd, config, system, user)

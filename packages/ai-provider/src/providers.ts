@@ -1,19 +1,22 @@
 import type { AiProviderId, AiProviderMeta, AiSettings, LegacyAiSettings } from './types'
 
+/** Curated Claude models shared by API-key and Claude Code OAuth connections. */
+export const CLAUDE_MODELS = [
+  'claude-sonnet-5',
+  'claude-opus-4-8',
+  'claude-opus-4-7',
+  'claude-sonnet-4-6',
+  'claude-opus-4-6',
+  'claude-opus-4-5-20251101',
+  'claude-haiku-4-5-20251001',
+  'claude-sonnet-4-5-20250929',
+] as const
+
 export const AI_PROVIDERS: AiProviderMeta[] = [
   {
     id: 'anthropic',
     label: 'Claude',
-    models: [
-      'claude-sonnet-5',
-      'claude-opus-4-8',
-      'claude-opus-4-7',
-      'claude-sonnet-4-6',
-      'claude-opus-4-6',
-      'claude-opus-4-5-20251101',
-      'claude-haiku-4-5-20251001',
-      'claude-sonnet-4-5-20250929',
-    ],
+    models: [...CLAUDE_MODELS],
     defaultModel: 'claude-opus-4-7',
     keyPlaceholder: 'sk-ant-api03-...',
   },
