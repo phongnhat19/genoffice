@@ -126,6 +126,12 @@ import { TabManager } from './tab-manager'
 import { applyUpdateChannel, initAutoUpdater } from './updater'
 import { isUpdateChannel, type UpdateChannel } from '../shared/update-api'
 
+// electron-vite launches Electron.app directly during development, so it does
+// not inherit electron-builder's productName or bundled icon. Set the runtime
+// identity before Electron derives user-facing paths and menus.
+const APP_NAME = 'ORIO'
+app.setName(APP_NAME)
+
 /**
  * GenOffice unified shell: ONE Electron app, ONE BrowserWindow, hosting the
  * docs and sheets modules as WebContentsView tabs behind a WPS-style tab
@@ -1224,11 +1230,17 @@ function createShellWindow(): void {
     height: 900,
     minWidth: 980,
     minHeight: 600,
-    title: 'GenOffice',
+    title: APP_NAME,
     // vibrancy: editor modules punch translucent regions (e.g. the slides
     // thumbnail pane) through to the desktop
     ...(process.platform === 'darwin'
       ? { titleBarStyle: 'hiddenInset' as const, vibrancy: 'sidebar' as const }
+      : {}),
+    // Packaged apps embed their platform icon. electron-vite runs the generic
+    // Electron executable instead, so Windows and Linux need the development
+    // window icon explicitly; macOS uses the Dock icon set at startup below.
+    ...(!app.isPackaged && process.platform !== 'darwin'
+      ? { icon: join(app.getAppPath(), 'build', 'icon.png') }
       : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -2204,6 +2216,12 @@ registerTabsIpc()
 setSessionPathResolver(resolveSheetsSessionPath)
 
 app.whenReady().then(() => {
+  // Packaged macOS builds get icon.icns from electron-builder. In development
+  // Electron.app supplies its own Dock icon unless we replace it explicitly.
+  if (!app.isPackaged && process.platform === 'darwin') {
+    app.dock?.setIcon(join(app.getAppPath(), 'build', 'icon.png'))
+  }
+
   const hasLock = app.requestSingleInstanceLock(
     pendingLaunchPath ? { launchPath: pendingLaunchPath } : {},
   )

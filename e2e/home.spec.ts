@@ -2,6 +2,19 @@ import { test, expect } from '@playwright/test'
 import { launchShell, closeAndSaveVideo, screenshotPath } from './helpers'
 
 test.describe('home screen', () => {
+  test('uses the ORIO identity in an unpackaged launch', async () => {
+    const launched = await launchShell({ onboardingSeen: true, videoDir: 'app-identity' })
+    try {
+      const identity = await launched.app.evaluate(({ app: electronApp, BrowserWindow }) => ({
+        name: electronApp.getName(),
+        title: BrowserWindow.getFocusedWindow()?.getTitle(),
+      }))
+      expect(identity).toEqual({ name: 'ORIO', title: 'ORIO' })
+    } finally {
+      await closeAndSaveVideo(launched, 'app-identity')
+    }
+  })
+
   test('shows hero, quick-create cards and tab bar', async () => {
     const launched = await launchShell({ onboardingSeen: true, videoDir: 'home-basics' })
     const { page } = launched
