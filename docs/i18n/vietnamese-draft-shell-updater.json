@@ -1,0 +1,16 @@
+{
+  "status": "approved-for-integration-pending-suite-coverage",
+  "source": "apps/shell/src/main/updater.ts:tUpd",
+  "language": "vi",
+  "strings": {
+    "updTitle": "Cập nhật phần mềm",
+    "updHeadline": "Đã có phiên bản mới",
+    "updDesc": "Bản cập nhật này bao gồm các cải tiến hiệu năng và bản sửa lỗi. Chúng tôi khuyên bạn nên cập nhật ngay.",
+    "updDownload": "Cập nhật ngay",
+    "updLater": "Nhắc tôi sau",
+    "updInstall": "Khởi động lại và cài đặt",
+    "updDownloading": "Đang tải bản cập nhật…",
+    "updFailed": "Tải bản cập nhật không thành công. Hãy kiểm tra mạng rồi thử lại.",
+    "updRetry": "Thử lại"
+  }
+}

@@ -1,3 +1,5 @@
+import vietnameseDraft from '../../../../../docs/i18n/vietnamese-draft-shell.json'
+
 /** home-screen dictionary; zh defines the key set, en must match (type-checked) */
 export const strings = {
   zh: {
@@ -119,7 +121,8 @@ export const strings = {
     onbSubtitle1: '第一个开源的 AI 原生 Office 套件',
     onbBody1: '创建文档、制作表格、生成演示、审阅 PDF。AI 深度融入每个环节。',
     onbTitle2: '这只是一个开始',
-    onbBody2: 'ORIO 目前处于 alpha 阶段。欢迎加入 ORIO Community 群聊，分享反馈，一起塑造它的未来。',
+    onbBody2:
+      'ORIO 目前处于 alpha 阶段。欢迎加入 ORIO Community 群聊，分享反馈，一起塑造它的未来。',
     onbCredits: '活跃贡献者可获得 **1,000+ ORIO 积分**',
     onbJoinCommunity: '加入 ORIO Community',
     onbSkip: '跳过',
@@ -256,6 +259,9 @@ export const strings = {
     onbNote3: 'AI features may consume ORIO credits.',
     onbBack: 'Back',
   },
+  // Kept in the approved translation artifact until the complete suite-wide
+  // `vi` locale can be enabled atomically.
+  vi: vietnameseDraft.strings,
   ja: {
     // Sidebar navigation
     navRecent: '最近使用',
@@ -357,8 +363,7 @@ export const strings = {
     loginOpenManually: 'ブラウザが開かない場合はこちらをクリック',
     loginCopyUrl: 'ログインリンクをコピー',
     loginCopied: 'コピーしました',
-    loginNetworkError:
-      'ORIO に接続できません。ネットワークまたはプロキシ設定を確認してください',
+    loginNetworkError: 'ORIO に接続できません。ネットワークまたはプロキシ設定を確認してください',
     loginExpired: 'サインインの有効期限が切れました。クリックして再試行',
     loginFailed: 'サインインに失敗しました。クリックして再試行',
     loggingOut: 'サインアウトしています…',
@@ -775,8 +780,7 @@ export const strings = {
     loginOpenManually: 'Browser nicht geöffnet? Hier klicken, um manuell zu öffnen',
     loginCopyUrl: 'Anmeldelink kopieren',
     loginCopied: 'Kopiert',
-    loginNetworkError:
-      'ORIO ist nicht erreichbar — prüfen Sie Netzwerk- oder Proxy-Einstellungen',
+    loginNetworkError: 'ORIO ist nicht erreichbar — prüfen Sie Netzwerk- oder Proxy-Einstellungen',
     loginExpired: 'Die Autorisierung ist abgelaufen — klicken Sie zum Wiederholen',
     loginFailed: 'Anmeldung fehlgeschlagen — klicken Sie zum Wiederholen',
     loggingOut: 'Abmelden…',
@@ -2107,8 +2111,7 @@ export const strings = {
     loginOpenManually: 'Pelayar tidak terbuka? Klik untuk membuka secara manual',
     loginCopyUrl: 'Salin pautan log masuk',
     loginCopied: 'Disalin',
-    loginNetworkError:
-      'Tidak dapat menyambung ke ORIO — semak rangkaian atau tetapan proksi anda',
+    loginNetworkError: 'Tidak dapat menyambung ke ORIO — semak rangkaian atau tetapan proksi anda',
     loginExpired: 'Kebenaran telah tamat tempoh — klik untuk cuba lagi',
     loginFailed: 'Log masuk gagal — klik untuk cuba lagi',
     loggingOut: 'Sedang log keluar…',
@@ -2507,7 +2510,8 @@ export const strings = {
     onbSubtitle1: '第一個開源的 AI 原生 Office 套件',
     onbBody1: '建立文件、製作試算表、產生簡報、審閱 PDF。AI 深度融入每個環節。',
     onbTitle2: '這只是一個開始',
-    onbBody2: 'ORIO 目前仍在 alpha 階段。歡迎加入 ORIO Community 群聊，分享回饋，一起打造它的未來。',
+    onbBody2:
+      'ORIO 目前仍在 alpha 階段。歡迎加入 ORIO Community 群聊，分享回饋，一起打造它的未來。',
     onbCredits: '活躍貢獻者可獲得 **1,000+ ORIO 點數**',
     onbJoinCommunity: '加入 ORIO Community',
     onbSkip: '略過',
