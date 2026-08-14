@@ -14,10 +14,9 @@ import {
 } from './shared'
 
 export type { ImageSearchResult, WebSearchResult } from './shared'
-// Legacy cloud helpers remain internal-only while ORIO's public search path
-// uses direct providers above. They are not bundled into ORIO installers.
-export * from './gsk'
-export * from './genoffice-auth'
+// Genspark cloud helpers are intentionally disabled for ORIO desktop builds.
+// export * from './gsk'
+// export * from './genoffice-auth'
 
 const SERPER_KEY = () => process.env.SERPER_API_KEY ?? ''
 

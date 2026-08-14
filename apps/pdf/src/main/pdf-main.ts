@@ -1,15 +1,17 @@
 import { existsSync } from 'node:fs'
 import { readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { BrowserWindow, WebContentsView, app, dialog, ipcMain, shell } from 'electron'
+import { BrowserWindow, WebContentsView, app, dialog, ipcMain, safeStorage, shell } from 'electron'
 import type { WebContents } from 'electron'
 import {
   contextMenuLabels,
   installContextMenu,
   installNavigationGuard,
+  OrioAiService,
   safeExternalUrl,
 } from '@genoffice/electron-utils'
 import { createI18n, getUiLang } from '@genoffice/i18n'
+import type { AiSettings, AiStreamChunk, AiStreamRequest } from '@genoffice/ai-provider'
 import { PDF_CHANNELS } from '../shared/ipc'
 import type {
   ExportImagesRequest,
@@ -234,6 +236,48 @@ const tDlg = createI18n({
     btnCancel: '取消',
   },
 })
+
+let pdfAiRegistered = false
+
+function registerPdfStandaloneAiIpc(): void {
+  if (pdfAiRegistered) return
+  pdfAiRegistered = true
+  const orio = new OrioAiService({
+    path: () => join(app.getPath('userData'), 'ai-settings.json'),
+    safeStorage,
+    openExternal: (url) => shell.openExternal(url),
+  })
+  const activeStreams = new Map<string, AbortController>()
+  ipcMain.handle('ai:get-settings', (): Promise<AiSettings> => orio.view())
+  ipcMain.handle('ai:select-connection', () => orio.view())
+  ipcMain.handle('ai:save-api-key', () => orio.view())
+  ipcMain.handle('ai:oauth-start', () => orio.startAuthorization())
+  ipcMain.handle('ai:oauth-status', () => orio.view())
+  ipcMain.handle('ai:disconnect-connection', () => orio.disconnect())
+  ipcMain.handle('ai:stream', async (event, request: AiStreamRequest) => {
+    const send = (chunk: AiStreamChunk) => {
+      if (!event.sender.isDestroyed()) event.sender.send('ai:stream-chunk', chunk)
+    }
+    const controller = new AbortController()
+    activeStreams.set(request.requestId, controller)
+    try {
+      await orio.stream(request, send, controller.signal)
+    } catch (error) {
+      send({
+        requestId: request.requestId,
+        type: controller.signal.aborted ? 'done' : 'error',
+        ...(controller.signal.aborted
+          ? {}
+          : { error: error instanceof Error ? error.message : String(error) }),
+      })
+    } finally {
+      activeStreams.delete(request.requestId)
+    }
+  })
+  ipcMain.handle('ai:stream-cancel', (_event, requestId: string) =>
+    activeStreams.get(requestId)?.abort(),
+  )
+}
 type DlgKey =
   | 'dlgExportImages'
   | 'dlgExtract'
@@ -555,6 +599,7 @@ export function startPdfStandalone(): void {
   })
   void app.whenReady().then(() => {
     registerPdfIpc()
+    registerPdfStandaloneAiIpc()
     const win = new BrowserWindow({
       width: 1200,
       height: 850,

@@ -14,6 +14,13 @@ export const CLAUDE_MODELS = [
 
 export const AI_PROVIDERS: AiProviderMeta[] = [
   {
+    id: 'orio',
+    label: 'ORIO Cloud AI',
+    models: ['ORIO managed'],
+    defaultModel: 'ORIO managed',
+    keyPlaceholder: '',
+  },
+  {
     id: 'anthropic',
     label: 'Claude',
     models: [...CLAUDE_MODELS],

@@ -1862,6 +1862,50 @@ button {
   gap: 2px;
 }
 
+.ai-provider-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border-default);
+  font-size: 12px;
+}
+
+.ai-provider-field {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+  color: var(--color-text-secondary);
+}
+
+.ai-provider-field strong {
+  color: var(--color-text-primary);
+}
+
+.ai-provider-connect {
+  height: 28px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 6px;
+  background: var(--color-bg-page);
+  color: #3b6ff5;
+  font: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ai-provider-connect:hover {
+  background: var(--color-bg-subtle);
+}
+.ai-provider-connect:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.ai-provider-controls[data-state='error'] .ai-provider-status {
+  color: #b42318;
+}
+
 .ai-header-btn {
   display: flex;
   align-items: center;

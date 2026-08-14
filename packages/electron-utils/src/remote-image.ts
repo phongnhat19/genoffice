@@ -1,7 +1,6 @@
 /// Downloader for AI-inserted images. Image-search results largely live on the
-/// Genspark CDN (sspark.genspark.ai), which intermittently refuses bare
-/// requests; browser-like headers plus a Referer on genspark hosts and a couple
-/// of retries turn most of those transient failures into successful inserts.
+/// Third-party image download helper. Genspark-specific handling is disabled
+/// for ORIO, so those URLs are never fetched by this helper.
 
 import { fetchWithSsrfGuard, type FetchWithSsrfGuardOptions } from './safe-remote-url'
 
@@ -15,14 +14,10 @@ export function remoteImageHeaders(rawUrl: string): Record<string, string> {
     // content-negotiating CDNs to send bytes that end up mislabeled.
     Accept: 'image/png,image/jpeg,image/gif,image/*;q=0.8,*/*;q=0.5',
   }
-  try {
-    const host = new URL(rawUrl).hostname.toLowerCase()
-    if (host === 'genspark.ai' || host.endsWith('.genspark.ai')) {
-      headers.Referer = 'https://www.genspark.ai/'
-    }
-  } catch {
-    /* fetchWithSsrfGuard rejects unparseable URLs on its own */
-  }
+  // Genspark CDN access is intentionally disabled for ORIO.
+  // if (new URL(rawUrl).hostname.endsWith('.genspark.ai')) {
+  //   headers.Referer = 'https://www.genspark.ai/'
+  // }
   return headers
 }
 
@@ -39,6 +34,12 @@ export async function fetchRemoteImage(
   } = {},
 ): Promise<Response | null> {
   const { retryDelaysMs = RETRY_DELAYS_MS, ...guardOptions } = options
+  try {
+    const host = new URL(rawUrl).hostname.toLowerCase()
+    if (host === 'genspark.ai' || host.endsWith('.genspark.ai')) return null
+  } catch {
+    return null
+  }
   const headers = remoteImageHeaders(rawUrl)
   for (let attempt = 0; ; attempt++) {
     let resp: Response | null = null

@@ -34,10 +34,10 @@ import type {
 import { z } from 'zod'
 import {
   appMenuLabels,
-  AiProviderSettingsService,
   contextMenuLabels,
   installContextMenu,
   installNavigationGuard,
+  OrioAiService,
   safeExternalUrl,
   viewMenuTemplate,
   windowMenuTemplate,
@@ -45,17 +45,9 @@ import {
 import { createI18n, getUiLang, type Lang, normalizeLang, setUiLang } from '@genoffice/i18n'
 import { ProjectStore } from '@genoffice/project-store'
 
-import {
-  AiCreditsError,
-  AiTimeoutError,
-  chatForProvider,
-  streamForProvider,
-  type AiProviderId,
-  type AiSettings,
-  type AiStreamChunk,
-} from '@genoffice/ai-provider'
+import { type AiSettings, type AiStreamChunk } from '@genoffice/ai-provider'
 import { csvToXlsxBuffer, decodeCsvBuffer } from '../gateway/csv-import'
-import { setGskProxyUrl, webSearch, imageSearch } from '@genoffice/ai-search'
+import { webSearch, imageSearch } from '@genoffice/ai-search'
 import { parseFileToText } from '@genoffice/file-parse'
 import type { CellEdit, SheetStructuralOps } from '../gateway/xlsx-gateway'
 import { readArchiveEntryText, saveWorkbookViaSidecar } from '../gateway/xlsx-package-io'
@@ -2004,131 +1996,55 @@ export function registerSheetsAiIpc(): void {
   if (aiIpcRegistered) return
   aiIpcRegistered = true
 
-  const providerSettings = new AiProviderSettingsService({
+  const orio = new OrioAiService({
     path: SETTINGS_PATH,
     safeStorage,
     openExternal: (url) => shell.openExternal(url),
   })
   ipcMain.handle(IPC_CHANNELS.aiGetSettings, (event): Promise<AiSettings> => {
     sessionFor(event)
-    return providerSettings.view()
+    return orio.view()
   })
 
-  ipcMain.handle(IPC_CHANNELS.aiSetSettings, (event, input: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.aiSetSettings, async (event, input: unknown) => {
     sessionFor(event)
-    const settings = aiSettingsInputSchema.parse(input)
-    return providerSettings.select(
-      'selectedConnectionId' in settings
-        ? (settings.selectedConnectionId ?? 'openai-oauth')
-        : 'openai-oauth',
-      settings.providers?.[settings.provider]?.model ?? 'gpt-5.6-sol',
-    )
+    aiSettingsInputSchema.parse(input)
+    return orio.view()
   })
-  ipcMain.handle('ai:select-connection', (_event, id: unknown, model: unknown) =>
-    providerSettings.select(id, model),
-  )
-  ipcMain.handle('ai:save-api-key', (_event, id: unknown, key: unknown, model?: unknown) =>
-    providerSettings.saveApiKey(id, key, model),
-  )
-  ipcMain.handle('ai:oauth-start', (_event, connectionId: unknown, acknowledgedRisk?: unknown) =>
-    providerSettings.startOAuth(connectionId, acknowledgedRisk === true),
-  )
-  ipcMain.handle('ai:oauth-status', () => providerSettings.oauthStatus())
-  ipcMain.handle('ai:disconnect-connection', (_event, id: unknown) =>
-    providerSettings.disconnect(id),
-  )
+  ipcMain.handle('ai:select-connection', async () => orio.view())
+  ipcMain.handle('ai:save-api-key', async () => orio.view())
+  ipcMain.handle('ai:oauth-start', async () => {
+    await orio.startAuthorization()
+    return orio.view()
+  })
+  ipcMain.handle('ai:oauth-status', () => orio.view())
+  ipcMain.handle('ai:disconnect-connection', () => orio.disconnect())
 
   ipcMain.handle(IPC_CHANNELS.aiChat, async (event, input: unknown) => {
     sessionFor(event)
     const request = aiChatRequestSchema.parse(input)
-    const resolved = await providerSettings.config()
-    const provider = resolved.provider
-    let config = resolved.config
-    if (!config?.apiKey) {
-      return {
-        ok: false,
-        error: tm('errNoApiKey', { provider }),
-      }
-    }
-    if (!config.model) return { ok: false, error: tm('errNoModel') }
     try {
-      let response = await chatForProvider(provider, config, request.system, request.user)
-      if (
-        !response.ok &&
-        (provider === 'openai' || provider === 'anthropic') &&
-        config.authType === 'oauth' &&
-        /(?:Codex|Claude) HTTP 401|(?:Codex|Claude) HTTP 403/.test(response.error ?? '') &&
-        (await providerSettings.refreshOAuthConnection(resolved.connectionId))
-      ) {
-        const retried = await providerSettings.config()
-        if (retried.config) {
-          config = retried.config
-          response = await chatForProvider(provider, config, request.system, request.user)
-        }
-      }
-      return response
+      return await orio.chat({
+        requestId: randomUUID(),
+        system: request.system,
+        user: request.user,
+      })
     } catch (err) {
-      return { ok: false, error: String(err) }
+      return { ok: false, error: err instanceof Error ? err.message : String(err) }
     }
   })
 
   ipcMain.handle(IPC_CHANNELS.aiStream, async (event, input: unknown) => {
     const entry = sessionFor(event)
     const request = aiStreamRequestSchema.parse(input)
-    const { requestId, system, messages } = request
-    const tools = request.tools ?? []
-    const maxTokens = request.maxTokens ?? 8192
-    const resolved = await providerSettings.config()
-    const provider = resolved.provider
-    let config = resolved.config
+    const { requestId } = request
     const send = (chunk: AiStreamChunk) => {
       if (!event.sender.isDestroyed()) event.sender.send(IPC_CHANNELS.aiStreamChunk, chunk)
     }
-    if (!config?.apiKey) {
-      send({
-        requestId,
-        type: 'error',
-        error: tm('errNoApiKey', { provider }),
-      })
-      return
-    }
-    if (!config.model) {
-      send({ requestId, type: 'error', error: tm('errNoModel') })
-      return
-    }
     const controller = new AbortController()
     entry.aiStreams.set(requestId, controller)
-    // wire-activity keepalive: lets the renderer's silence watchdog tell a slow turn from a dead one
-    let lastPing = 0
-    const ping = () => {
-      const now = Date.now()
-      if (now - lastPing < 5_000) return
-      lastPing = now
-      send({ requestId, type: 'ping' })
-    }
     try {
-      const stream = () => streamForProvider(provider, config!, system, messages, tools, maxTokens, {
-          signal: controller.signal,
-          onDelta: (text) => send({ requestId, type: 'delta', text }),
-          onToolCall: (toolCall) => send({ requestId, type: 'tool-call', toolCall }),
-          onActivity: ping,
-        })
-      try {
-        await stream()
-      } catch (err) {
-        if (
-          (provider === 'openai' || provider === 'anthropic') &&
-          config.authType === 'oauth' &&
-          /(?:Codex|Claude) HTTP 401|(?:Codex|Claude) HTTP 403/.test(String(err)) &&
-          (await providerSettings.refreshOAuthConnection(resolved.connectionId))
-        ) {
-          const retried = await providerSettings.config()
-          if (!retried.config) throw err
-          config = retried.config
-          await stream()
-        } else throw err
-      }
-      send({ requestId, type: 'done' })
+      await orio.stream(request, send, controller.signal)
     } catch (err) {
       if (controller.signal.aborted) {
         send({ requestId, type: 'done' })
@@ -2137,11 +2053,6 @@ export function registerSheetsAiIpc(): void {
           requestId,
           type: 'error',
           error: err instanceof Error ? err.message : String(err),
-          ...(err instanceof AiTimeoutError
-            ? { errorCode: 'timeout' as const }
-            : err instanceof AiCreditsError
-              ? { errorCode: 'credits' as const }
-              : {}),
         })
       }
     } finally {
@@ -2729,9 +2640,8 @@ export {
  */
 async function applyMainProcessProxy(): Promise<void> {
   const setDispatcher = async (proxyUrl: string) => {
-    // spawned gsk CLI children do their own fetch and never see the
-    // dispatcher below — forward the proxy to them via env
-    setGskProxyUrl(proxyUrl)
+    // Genspark CLI proxy forwarding is disabled for ORIO.
+    // setGskProxyUrl(proxyUrl)
     try {
       const { ProxyAgent, setGlobalDispatcher } = await import('undici')
       setGlobalDispatcher(new ProxyAgent(proxyUrl))

@@ -184,6 +184,9 @@ export interface PdfApi {
   getLanguage(): Promise<Lang>
   onLanguageChanged(handler: (lang: Lang) => void): () => void
   getAiSettings(): Promise<AiSettings>
+  aiStartOAuth(connectionId: string, acknowledgedRisk: boolean): Promise<void>
+  aiOAuthStatus(): Promise<AiSettings>
+  aiDisconnectConnection(id: string): Promise<AiSettings>
   aiStream(request: AiStreamRequest): Promise<void>
   aiStreamCancel(requestId: string): Promise<void>
   onAiStream(handler: (chunk: AiStreamChunk) => void): () => void

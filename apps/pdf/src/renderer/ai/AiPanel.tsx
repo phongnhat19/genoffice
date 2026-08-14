@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, ReactElement } from 'react'
 import { AgentLoop } from '@genoffice/agent-core'
 import type { AiSettings } from '@genoffice/ai-provider'
-import { AiComposer, AiTypingIndicator } from '@genoffice/ui'
+import { AiComposer, AiProviderControls, AiTypingIndicator } from '@genoffice/ui'
 import { aiLangDirective, t as tGlobal, useI18n } from '../i18n/locale'
 import { Markdown } from '@genoffice/ui'
 import sendEnterOn from '../assets/send-enter-on.png'
@@ -69,6 +69,7 @@ export function AiPanel({
     dock?.style.setProperty('--ai-panel-width', `${panelWidth}px`)
   }, [panelWidth])
   const settingsRef = useRef<AiSettings | null>(null)
+  const [providerSettings, setProviderSettings] = useState<AiSettings | null>(null)
   const langRef = useRef(lang)
   langRef.current = lang
   const apiRef = useRef(api)
@@ -169,6 +170,13 @@ export function AiPanel({
       chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight })
     }
   }, [chat, busy])
+
+  useEffect(() => {
+    void window.pdfApi.getAiSettings().then((settings) => {
+      settingsRef.current = settings
+      setProviderSettings(settings)
+    })
+  }, [])
 
   const onChatScroll = (): void => {
     const el = chatRef.current
@@ -293,6 +301,15 @@ export function AiPanel({
           </button>
         </div>
       </header>
+      {providerSettings && (
+        <AiProviderControls
+          settings={providerSettings}
+          onSettings={(settings) => {
+            settingsRef.current = settings
+            setProviderSettings(settings)
+          }}
+        />
+      )}
 
       <div className="ai-chat" ref={chatRef} onScroll={onChatScroll}>
         {chat.length === 0 && (

@@ -1,6 +1,7 @@
 import type { AgentMessage, AgentToolCall, AgentToolDef } from '@genoffice/agent-core'
 
-export type AiProviderId = 'anthropic' | 'gemini' | 'deepseek' | 'openai' | 'openrouter' | 'custom'
+export type AiProviderId =
+  'anthropic' | 'gemini' | 'deepseek' | 'openai' | 'openrouter' | 'custom' | 'orio'
 export type AiAuthType = 'oauth' | 'api-key'
 export type AiConnectionStatus =
   'connected' | 'needs-auth' | 'expired' | 'connecting' | 'disconnected'

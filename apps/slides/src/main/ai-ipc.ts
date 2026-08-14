@@ -7,15 +7,8 @@
 import { app, ipcMain, safeStorage, shell } from 'electron'
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import {
-  AiCreditsError,
-  AiTimeoutError,
-  streamForProvider,
-  type AiSettings,
-  type AiStreamChunk,
-  type AiStreamRequest,
-} from '@genoffice/ai-provider'
-import { AiProviderSettingsService, fetchRemoteImage } from '@genoffice/electron-utils'
+import { type AiSettings, type AiStreamChunk, type AiStreamRequest } from '@genoffice/ai-provider'
+import { OrioAiService, fetchRemoteImage } from '@genoffice/electron-utils'
 import { webSearch, imageSearch } from '@genoffice/ai-search'
 import { addPicture } from '@genoffice/pptx-engine'
 import { EMU_PER_PX_96 } from '@genoffice/pptx-render'
@@ -43,108 +36,38 @@ function writeJson(path: string, value: unknown): void {
 const activeAiStreams = new Map<string, AbortController>()
 
 export function registerAiIpc(): void {
-  const providerSettings = new AiProviderSettingsService({
+  const orio = new OrioAiService({
     path: AI_SETTINGS_PATH,
     safeStorage,
     openExternal: (url) => shell.openExternal(url),
   })
-  ipcMain.handle('ai:get-settings', () => providerSettings.view())
+  ipcMain.handle('ai:get-settings', () => orio.view())
 
-  ipcMain.handle('ai:set-settings', async (_event, settings: AiSettings) =>
-    providerSettings.select(
-      settings.selectedConnectionId ?? 'openai-oauth',
-      settings.providers?.[settings.provider]?.model ?? 'gpt-5.6-sol',
-    ),
-  )
-  ipcMain.handle('ai:select-connection', (_event, id: unknown, model: unknown) =>
-    providerSettings.select(id, model),
-  )
-  ipcMain.handle('ai:save-api-key', (_event, id: unknown, key: unknown, model?: unknown) =>
-    providerSettings.saveApiKey(id, key, model),
-  )
-  ipcMain.handle('ai:oauth-start', (_event, connectionId: unknown, acknowledgedRisk?: unknown) =>
-    providerSettings.startOAuth(connectionId, acknowledgedRisk === true),
-  )
-  ipcMain.handle('ai:oauth-status', () => providerSettings.oauthStatus())
-  ipcMain.handle('ai:disconnect-connection', (_event, id: unknown) =>
-    providerSettings.disconnect(id),
-  )
+  ipcMain.handle('ai:set-settings', (_event, _settings: AiSettings) => orio.view())
+  ipcMain.handle('ai:select-connection', () => orio.view())
+  ipcMain.handle('ai:save-api-key', () => orio.view())
+  ipcMain.handle('ai:oauth-start', () => orio.startAuthorization())
+  ipcMain.handle('ai:oauth-status', () => orio.view())
+  ipcMain.handle('ai:disconnect-connection', () => orio.disconnect())
 
   ipcMain.handle('ai:stream', async (event, request: AiStreamRequest) => {
-    const { requestId, system, messages } = request
-    const tools = request.tools ?? []
-    const maxTokens = request.maxTokens ?? 8192
-    const resolved = await providerSettings.config()
-    const provider = resolved.provider
-    let config = resolved.config
     const send = (chunk: AiStreamChunk) => {
       if (!event.sender.isDestroyed()) event.sender.send('ai:stream-chunk', chunk)
     }
-    if (!config?.apiKey) {
-      send({
-        requestId,
-        type: 'error',
-        error: tm('errNoApiKey', { provider }),
-      })
-      return
-    }
-    if (!config.model) {
-      send({ requestId, type: 'error', error: tm('errNoModel') })
-      return
-    }
     const controller = new AbortController()
-    activeAiStreams.set(requestId, controller)
-    // wire-activity keepalive: lets the renderer's silence watchdog tell a slow turn from a dead one
-    let lastPing = 0
-    const ping = () => {
-      const now = Date.now()
-      if (now - lastPing < 5_000) return
-      lastPing = now
-      send({ requestId, type: 'ping' })
-    }
+    activeAiStreams.set(request.requestId, controller)
     try {
-      const stream = () =>
-        streamForProvider(provider, config!, system, messages, tools, maxTokens, {
-          signal: controller.signal,
-          onDelta: (text) => send({ requestId, type: 'delta', text }),
-          onToolCall: (toolCall) => send({ requestId, type: 'tool-call', toolCall }),
-          onActivity: ping,
-        })
-      try {
-        await stream()
-      } catch (err) {
-        if (
-          (provider === 'openai' || provider === 'anthropic') &&
-          config.authType === 'oauth' &&
-          /(?:Codex|Claude) HTTP 401|(?:Codex|Claude) HTTP 403/.test(String(err)) &&
-          (await providerSettings.refreshOAuthConnection(resolved.connectionId))
-        ) {
-          const retried = await providerSettings.config()
-          if (!retried.config) throw err
-          config = retried.config
-          await stream()
-        } else throw err
-      }
-      send({ requestId, type: 'done' })
+      await orio.stream(request, send, controller.signal)
     } catch (err) {
       if (controller.signal.aborted) {
-        send({ requestId, type: 'done' })
+        send({ requestId: request.requestId, type: 'done' })
       } else {
         const msg = err instanceof Error ? err.message : String(err)
-        console.error(`[ai-stream] ${requestId} (${provider}/${config.model}) failed:`, msg)
-        send({
-          requestId,
-          type: 'error',
-          error: msg,
-          ...(err instanceof AiTimeoutError
-            ? { errorCode: 'timeout' as const }
-            : err instanceof AiCreditsError
-              ? { errorCode: 'credits' as const }
-              : {}),
-        })
+        console.error(`[orio-ai-stream] ${request.requestId} failed:`, msg)
+        send({ requestId: request.requestId, type: 'error', error: msg })
       }
     } finally {
-      activeAiStreams.delete(requestId)
+      activeAiStreams.delete(request.requestId)
     }
   })
 

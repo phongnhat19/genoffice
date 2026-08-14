@@ -42,17 +42,11 @@ import {
 } from '@genoffice/electron-utils'
 import { readAppSettings, writeAppSetting } from './app-settings'
 import { ProjectStore } from '@genoffice/project-store'
-import {
-  ensureGenofficeLogin,
-  genofficeLogout,
-  gskConvertPdfToDocx,
-  gskLoginInfo,
-  hasGskAuth,
-  loadGenofficeAuth,
-  resolveGskEntry,
-  setGskProxyUrl,
-  startGenofficeLogin,
-} from '@genoffice/ai-search'
+// Genspark cloud login, conversion, and proxy support are disabled for ORIO.
+// import {
+//   ensureGenofficeLogin, genofficeLogout, gskConvertPdfToDocx, gskLoginInfo,
+//   hasGskAuth, loadGenofficeAuth, resolveGskEntry, setGskProxyUrl, startGenofficeLogin,
+// } from '@genoffice/ai-search'
 
 import {
   buildDocsMenu,
@@ -117,7 +111,7 @@ import {
   requestPdfSaveAs,
   setPdfSaveAsInFlight,
 } from '../../../pdf/src/main/pdf-main'
-import type { AccountLoginEvent, RecentEntry, RecentPage, RenameResult } from '../shared/home-api'
+import type { RecentEntry, RecentPage, RenameResult } from '../shared/home-api'
 import { HOME_CHANNELS } from '../shared/home-api'
 import type { TabKind } from '../shared/tabs-api'
 import { TABS_CHANNELS } from '../shared/tabs-api'
@@ -240,7 +234,7 @@ function currentUpdateChannel(): UpdateChannel {
 // The GenTeam community page opened from the onboarding's second slide.
 // Stable short link served by the genspark.ai site; it 302s to the tokened
 // invite link, which stays out of this repo and rotates server-side.
-const GENTEAM_URL = 'https://www.genspark.ai/genoffice/join'
+// const GENTEAM_URL = 'https://www.genspark.ai/genoffice/join'
 
 const tMain = createI18n({
   zh: {
@@ -1523,46 +1517,12 @@ function statEntries(paths: string[]): RecentEntry[] {
 }
 
 function registerHomeIpc(): void {
-  // signed-in means GenOffice's own device-code login; the shared gsk CLI key
-  // is only a silent fallback, deliberately not shown here to nudge users onto our key
-  ipcMain.handle(HOME_CHANNELS.accountStatus, async () => {
-    if (!loadGenofficeAuth()) return { loggedIn: false }
-    const info = await gskLoginInfo()
-    return info ? { loggedIn: true, email: info.email } : { loggedIn: true }
-  })
-
-  // login progress is streamed to the requesting renderer; the auth URL is
-  // kept main-side so the "open manually" rescue never opens a renderer-supplied URL
-  let pendingLoginUrl = ''
-  ipcMain.handle(HOME_CHANNELS.accountLogin, (event) => {
-    const sender = event.sender
-    pendingLoginUrl = ''
-    const send = (payload: AccountLoginEvent) => {
-      if (!sender.isDestroyed()) sender.send(HOME_CHANNELS.accountLoginEvent, payload)
-    }
-    // open the browser on the first url event only; later events refresh the rescue URL
-    let opened = false
-    const launched = startGenofficeLogin((progress) => {
-      if (progress.url) {
-        pendingLoginUrl = progress.url
-        if (!opened) {
-          opened = true
-          void shell.openExternal(progress.url)
-        }
-      }
-      send(progress)
-    })
-    if (launched) send({ phase: 'launched' })
-    return launched
-  })
-
-  ipcMain.handle(HOME_CHANNELS.accountLoginOpenUrl, () => {
-    if (pendingLoginUrl) void shell.openExternal(pendingLoginUrl)
-  })
-
-  ipcMain.handle(HOME_CHANNELS.accountLogout, async () => {
-    await genofficeLogout()
-  })
+  // Genspark account/login IPC is disabled. ORIO desktop authorization now
+  // happens from the AI connection control instead.
+  ipcMain.handle(HOME_CHANNELS.accountStatus, async () => ({ loggedIn: false }))
+  ipcMain.handle(HOME_CHANNELS.accountLogin, () => false)
+  ipcMain.handle(HOME_CHANNELS.accountLoginOpenUrl, () => undefined)
+  ipcMain.handle(HOME_CHANNELS.accountLogout, async () => undefined)
 
   ipcMain.handle(HOME_CHANNELS.getAppVersion, (): string => app.getVersion())
 
@@ -1738,9 +1698,8 @@ function registerHomeIpc(): void {
   })
 
   ipcMain.handle(HOME_CHANNELS.openGenTeam, () => {
-    shell.openExternal(GENTEAM_URL).catch(() => {
-      // no browser handler available; nothing actionable for the user here
-    })
+    // Genspark community link intentionally disabled.
+    // shell.openExternal(GENTEAM_URL).catch(() => undefined)
   })
 }
 
@@ -2006,6 +1965,15 @@ let exportingPdfDocx = false
  * save dialog never wastes a paid conversion.
  */
 async function exportPdfAsDocx(): Promise<void> {
+  // Genspark cloud PDF-to-Word conversion is disabled for ORIO.
+  if (shellWindow && !shellWindow.isDestroyed()) {
+    await dialog.showMessageBox(shellWindow, {
+      type: 'info',
+      message: 'Cloud PDF-to-Word conversion is unavailable in ORIO.',
+    })
+  }
+  return
+  /*
   const tab = tabManager?.activePdfTab()
   if (!tab?.filePath || !shellWindow) return
   if (exportingPdfDocx) {
@@ -2092,6 +2060,7 @@ async function exportPdfAsDocx(): Promise<void> {
     exportingPdfDocx = false
     if (shellWindow && !shellWindow.isDestroyed()) shellWindow.setProgressBar(-1)
   }
+  */
 }
 
 function openThirdPartyNotices(): Promise<string> {
@@ -2155,9 +2124,8 @@ async function installMainProcessProxy(): Promise<void> {
     }
   }
   if (!proxyUrl) return
-  // spawned gsk CLI children (login/search/…) do their own fetch and never see
-  // the dispatcher below — forward the proxy to them via env
-  setGskProxyUrl(proxyUrl)
+  // Genspark CLI proxy forwarding is disabled for ORIO.
+  // setGskProxyUrl(proxyUrl)
   try {
     const { ProxyAgent, setGlobalDispatcher } = await import('undici')
     setGlobalDispatcher(new ProxyAgent(proxyUrl))

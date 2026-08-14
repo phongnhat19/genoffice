@@ -36,6 +36,10 @@ const api: PdfApi = {
     return () => ipcRenderer.removeListener(PDF_CHANNELS.languageChanged, listener)
   },
   getAiSettings: () => ipcRenderer.invoke(AI_CHANNELS.getSettings),
+  aiStartOAuth: (connectionId, acknowledgedRisk) =>
+    ipcRenderer.invoke('ai:oauth-start', connectionId, acknowledgedRisk),
+  aiOAuthStatus: () => ipcRenderer.invoke('ai:oauth-status'),
+  aiDisconnectConnection: (id) => ipcRenderer.invoke('ai:disconnect-connection', id),
   aiStream: (request) => ipcRenderer.invoke(AI_CHANNELS.stream, request),
   aiStreamCancel: (requestId) => ipcRenderer.invoke(AI_CHANNELS.streamCancel, requestId),
   onAiStream: (handler) => {
