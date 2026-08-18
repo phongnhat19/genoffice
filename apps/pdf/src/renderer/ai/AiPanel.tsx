@@ -107,7 +107,9 @@ export function AiPanel({
     loopRef.current = new AgentLoop({
       transport: createElectronTransport(() => settingsRef.current!),
       skill: createPdfSkill(deps),
-      systemSuffix: () => aiLangDirective(langRef.current),
+      remoteSurface: 'pdf',
+      remoteSessionId: crypto.randomUUID(),
+      compaction: false,
       events: {
         onText: (text) => {
           setPhase('replying')

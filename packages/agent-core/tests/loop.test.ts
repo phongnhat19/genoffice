@@ -933,3 +933,25 @@ describe('composeSkills', () => {
     expect(() => composeSkills('x', '', [make('a'), make('b')])).toThrow(/duplicate/)
   })
 })
+
+describe('server-owned ORIO protocol', () => {
+  it('does not forward desktop prompt text or tool schemas', async () => {
+    let request: { system: string; tools: unknown[]; remoteSurface?: string; remoteSessionId?: string } | undefined
+    const transport: AgentTransport = {
+      stream(input, callbacks) {
+        request = input
+        queueMicrotask(() => callbacks.onDone())
+        return { cancel: () => callbacks.onDone() }
+      },
+    }
+    const loop = new AgentLoop({
+      transport,
+      skill: makeSkill(),
+      remoteSurface: 'docs',
+      remoteSessionId: 'desktop-session',
+    })
+    loop.run('Update the introduction')
+    await flush()
+    expect(request).toMatchObject({ system: '', tools: [], remoteSurface: 'docs', remoteSessionId: 'desktop-session' })
+  })
+})

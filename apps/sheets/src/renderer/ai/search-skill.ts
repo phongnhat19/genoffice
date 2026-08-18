@@ -7,14 +7,10 @@ import { t } from '../i18n/locale'
  * titles/links/snippets.
  */
 
-const SEARCH_SYSTEM_PROMPT = `## Web search
-- When you need up-to-date information, data, or facts beyond the workbook, use web_search; never fabricate numbers from memory.
-- When writing search results into the workbook, you must attribute the data source (load_guide: data-attribution first).`
-
 export function createSearchSkill(): AgentSkill {
   return {
     id: 'search',
-    systemPrompt: SEARCH_SYSTEM_PROMPT,
+    systemPrompt: '',
     tools: [
       {
         name: 'web_search',

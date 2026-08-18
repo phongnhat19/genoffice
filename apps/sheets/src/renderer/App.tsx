@@ -762,7 +762,9 @@ export function App(): React.JSX.Element {
   if (!agentLoopRef.current) {
     agentLoopRef.current = new AgentLoop({
       transport: createElectronTransport(() => aiSettingsRef.current!),
-      systemSuffix: aiLangDirective,
+      remoteSurface: 'sheets',
+      remoteSessionId: crypto.randomUUID(),
+      compaction: false,
       skill: composeSkills('sheets+files', '', [
         createWorkbookSkill(sheetsSkillDeps()),
         createFilesSkill(() => attachmentsRef.current),

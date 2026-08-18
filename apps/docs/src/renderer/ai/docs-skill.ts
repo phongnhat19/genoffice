@@ -1,6 +1,6 @@
 import type { Editor } from '@tiptap/core'
 import type { AgentSkill } from '@genoffice/agent-core'
-import { AGENT_SYSTEM_PROMPT, buildDocContext, type AiTrack, type NumIds } from './protocol'
+import { buildDocContext, type AiTrack, type NumIds } from './protocol'
 import { AGENT_TOOLS, executeTool, markDocSeen } from './tools'
 
 /**
@@ -15,7 +15,8 @@ export function createDocsSkill(
 ): AgentSkill {
   return {
     id: 'docx',
-    systemPrompt: AGENT_SYSTEM_PROMPT,
+    // ORIO owns the instruction server-side; this capability remains only as a local executor.
+    systemPrompt: '',
     tools: AGENT_TOOLS,
     buildContext: () => {
       const editor = getEditor()

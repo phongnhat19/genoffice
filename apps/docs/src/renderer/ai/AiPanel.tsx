@@ -466,7 +466,9 @@ export function AiPanel({
     })
     loopRef.current = new AgentLoop<PmNode>({
       transport: createElectronTransport(() => settingsRef.current),
-      systemSuffix: aiLangDirective,
+      remoteSurface: 'docs',
+      remoteSessionId: crypto.randomUUID(),
+      compaction: false,
       maxTurns: DOCS_AGENT_MAX_TURNS,
       skill: composeSkills('docs+files', '', [
         createDocsSkill(

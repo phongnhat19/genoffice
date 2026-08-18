@@ -1070,7 +1070,9 @@ export function AiPanel({
     accessRef.current = access
     loopRef.current = new AgentLoop({
       transport: createElectronTransport(() => settingsRef.current),
-      systemSuffix: aiLangDirective,
+      remoteSurface: 'slides',
+      remoteSessionId: crypto.randomUUID(),
+      compaction: false,
       skill: composeSkills('slides+files', '', [
         createSlidesSkill(access),
         createFilesSkill(

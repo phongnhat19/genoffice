@@ -12,13 +12,6 @@ import { t } from '../i18n/locale'
 
 const READ_CHUNK_CHARS = 24_000
 
-const FILES_SYSTEM_PROMPT = `## Attachments
-The user may attach local files to the conversation (see the "attachment list" in each turn's context).
-- When the user's request involves attachment content, read it with read_attachment first, then answer or generate; never guess the content from the file name.
-- Long files are read in pages: the result reports the total character count and the current range; to continue, set offset to the previous chunk's end position.
-- Image attachments (png/jpg/gif/webp) are already sent as images with the user message — just look at them; read_attachment is only for text-like attachments.
-- Do not call read_attachment when there are no attachments or they are unrelated to the request.`
-
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes}B`
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}KB`
@@ -28,7 +21,7 @@ function formatSize(bytes: number): string {
 export function createFilesSkill(getAttachments: () => readonly AttachmentMeta[]): AgentSkill {
   return {
     id: 'files',
-    systemPrompt: FILES_SYSTEM_PROMPT,
+    systemPrompt: '',
     tools: [
       {
         name: 'read_attachment',

@@ -24,6 +24,8 @@ type OrioStreamRequest = {
   messages: AiStreamRequest['messages']
   tools?: AiStreamRequest['tools'] | undefined
   maxTokens?: number | undefined
+  remoteSurface?: 'docs' | 'sheets' | 'slides' | 'slides_qc' | 'pdf' | undefined
+  remoteSessionId?: string | undefined
 }
 
 export interface OrioAiOptions {
@@ -56,6 +58,7 @@ export class OrioAiService {
       }
     | undefined
   constructor(private readonly options: OrioAiOptions) {}
+  private readonly remoteSessions = new Map<string, string>()
 
   private config(): OAuthConfig {
     const env = this.options.env ?? process.env
@@ -348,7 +351,24 @@ export class OrioAiService {
     onChunk: (chunk: AiStreamChunk) => void,
     signal: AbortSignal,
   ) {
-    const response = await this.request('/api/v1/ai/stream', request, signal)
+    const remote = request.remoteSurface && request.remoteSessionId
+    const lastMessage = request.messages.at(-1)
+    const remoteSession = remote ? this.remoteSessions.get(request.remoteSessionId!) : undefined
+    const endpoint = remote
+      ? remoteSession && lastMessage?.role === 'tool'
+        ? '/api/v1/ai/agent/continue'
+        : remoteSession && lastMessage?.role === 'user'
+          ? '/api/v1/ai/agent/message'
+          : '/api/v1/ai/agent/start'
+      : '/api/v1/ai/stream'
+    const body = remote
+      ? remoteSession && lastMessage?.role === 'tool'
+        ? { requestId: request.requestId, sessionId: remoteSession, toolResults: lastMessage.results }
+        : remoteSession && lastMessage?.role === 'user'
+          ? { requestId: request.requestId, sessionId: remoteSession, instruction: lastMessage.text, images: lastMessage.images }
+          : { requestId: request.requestId, surface: request.remoteSurface, instruction: lastMessage?.role === 'user' ? lastMessage.text : '', images: lastMessage?.role === 'user' ? lastMessage.images : undefined }
+      : request
+    const response = await this.request(endpoint, body, signal)
     if (!response.body) throw new Error('ORIO AI stream is unavailable.')
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
@@ -362,7 +382,12 @@ export class OrioAiService {
       for (const line of lines) {
         if (!line.startsWith('data:')) continue
         try {
-          onChunk(JSON.parse(line.slice(5).trim()) as AiStreamChunk)
+          const chunk = JSON.parse(line.slice(5).trim()) as { type: AiStreamChunk['type'] | 'session'; sessionId?: string; requestId?: string; text?: string; toolCall?: AiStreamChunk['toolCall']; error?: string; errorCode?: AiStreamChunk['errorCode']; stopReason?: string }
+          if (remote && chunk.type === 'session' && chunk.sessionId) {
+            this.remoteSessions.set(request.remoteSessionId!, chunk.sessionId)
+            continue
+          }
+          onChunk({ ...chunk, requestId: request.requestId } as AiStreamChunk)
         } catch {
           /* ignore malformed keepalive */
         }

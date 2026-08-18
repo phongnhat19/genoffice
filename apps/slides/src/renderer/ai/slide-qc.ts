@@ -72,21 +72,6 @@ export function mergeQcPages(
 /** Only the two tools the QC pass needs: fresh geometry reads + atomic layout scripts */
 const QC_TOOL_ALLOWLIST = new Set(['read_slide', 'execute_slide_script'])
 
-const QC_SYSTEM_PROMPT = `You are a slide layout QA fixer. Each request gives you ONE slide: a rendered screenshot (attached image) and an element inventory (ids, geometry, colors, text — the same ids the tools accept).
-
-Look at the screenshot for OBJECTIVE layout defects only:
-- text overflowing its box, colliding with a neighbor, or clipped by the canvas edge
-- elements overlapping unintentionally (a text block over another text block; content under an image)
-- unreadable contrast (text color too close to what it sits on)
-- obviously ragged alignment or wildly uneven spacing among sibling items (cards, bullets, columns)
-- distorted or badly cropped images
-
-Fix defects with execute_slide_script (batch every change for this page into as few calls as possible; call read_slide first if you need fresher geometry than the inventory). Prefer the minimal change: move/resize/shrink font — keep the page's design.
-
-STRICTLY FORBIDDEN: redesigning the page, changing the color scheme or fonts for taste, rewriting copy, adding or deleting elements, touching elements that look fine. When the screenshot shows no objective defect, make NO tool call.
-
-Final reply: one short line (under 15 words) stating what you fixed, or exactly "OK" if nothing needed fixing.`
-
 export interface QcPageResult {
   /** page still exists and the pass ran */
   ok: boolean
@@ -115,7 +100,7 @@ export function createSlideFixSkill(access: DeckAccess): AgentSkill {
   const full = createSlidesSkill(access)
   return {
     id: 'slides-qc',
-    systemPrompt: QC_SYSTEM_PROMPT,
+    systemPrompt: '',
     tools: full.tools.filter((tool) => QC_TOOL_ALLOWLIST.has(tool.name)),
     executeTool: full.executeTool,
   }
@@ -173,7 +158,9 @@ export function qcSlidePage(opts: QcPageOptions): Promise<QcPageResult> {
       skill: createSlideFixSkill(access),
       // audit feedback inside execute_slide_script output drives at most a couple of fix rounds
       maxTurns: 6,
-      ...(systemSuffix ? { systemSuffix } : {}),
+      remoteSurface: 'slides_qc',
+      remoteSessionId: crypto.randomUUID(),
+      compaction: false,
       events: {
         onToolExecuted: ({ execution }) => {
           if (execution.mutated) edited = true

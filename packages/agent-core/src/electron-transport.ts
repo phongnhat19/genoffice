@@ -19,7 +19,7 @@ export interface IpcStreamChunk {
   toolCall?: AgentToolCall
   error?: string
   /** machine-readable error cause; maps to the localized timeout/credits message */
-  errorCode?: 'timeout' | 'credits'
+  errorCode?: 'timeout' | 'credits' | 'update_required'
   /** normalized stop reason on 'done' ('max_tokens' = cut off by the token limit) */
   stopReason?: string
 }
@@ -31,6 +31,8 @@ export interface IpcStreamStart<S> {
   system: string
   messages: AgentMessage[]
   tools: AgentToolDef[]
+  remoteSurface?: AgentStreamRequest['remoteSurface'] | undefined
+  remoteSessionId?: string | undefined
 }
 
 /**
@@ -121,6 +123,7 @@ export function createIpcTransport<S>(options: IpcTransportOptions<S>): AgentTra
             system: request.system,
             messages: request.messages,
             tools: request.tools,
+            ...(request.remoteSurface ? { remoteSurface: request.remoteSurface, remoteSessionId: request.remoteSessionId } : {}),
           }),
         ).catch((err: unknown) => {
           fail(err instanceof Error ? err.message : options.unknownErrorText())

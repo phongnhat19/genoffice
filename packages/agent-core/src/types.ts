@@ -87,6 +87,9 @@ export interface AgentStreamRequest {
   system: string
   messages: AgentMessage[]
   tools: AgentToolDef[]
+  /** With this marker the transport uses ORIO's server-owned agent protocol. */
+  remoteSurface?: 'docs' | 'sheets' | 'slides' | 'slides_qc' | 'pdf' | undefined
+  remoteSessionId?: string | undefined
 }
 
 export interface AgentStreamCallbacks {

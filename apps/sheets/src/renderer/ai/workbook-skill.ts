@@ -1,5 +1,4 @@
 import type { AgentSkill } from '@genoffice/agent-core'
-import basePrompt from './prompts/base.md?raw'
 import {
   WORKBOOK_TOOLS,
   buildWorkbookContext,
@@ -20,7 +19,7 @@ import {
 export function createWorkbookSkill(deps: SheetsSkillDeps): AgentSkill {
   return {
     id: 'sheets',
-    systemPrompt: basePrompt,
+    systemPrompt: '',
     tools: WORKBOOK_TOOLS,
     buildContext: () => buildWorkbookContext(deps),
     executeTool: (call) => executeWorkbookTool(call, deps),

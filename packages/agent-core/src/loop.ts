@@ -81,6 +81,9 @@ export interface AgentLoopOptions<TSnapshot = unknown> {
   formatUserMessage?(instruction: string, context: string): string
   /** appended to the system prompt each turn (e.g. reply-language directive following the UI language) */
   systemSuffix?(): string
+  /** Keeps prompts and schemas on ORIO; desktop still executes returned local tool calls. */
+  remoteSurface?: 'docs' | 'sheets' | 'slides' | 'slides_qc' | 'pdf' | undefined
+  remoteSessionId?: string | undefined
 }
 
 const COMPACT_MAX_BYTES = 256 * 1024
@@ -108,11 +111,9 @@ const TURN_LIMIT_NOTE =
  */
 export const COMPLETED_VIA_TOOLS_TEXT = '(completed tool actions; no text reply)'
 
-const SUMMARIZE_SYSTEM =
-  'You are a conversation compressor. Compress this editing session between the user and the AI assistant into a concise summary so later turns can continue with context. ' +
-  "Keep: the user's goals and key instructions, completed changes (which files/pages/elements were modified), important facts and data, and outstanding items. " +
-  'For specific figures/statistics, mark their provenance: figures from the user or from tool results (e.g. web_search) keep their source; figures the assistant produced without a source must be marked "(unverified)" so later turns do not treat them as established facts. ' +
-  'Omit: pleasantries, tool-call details, and intermediate trial and error. Use a bullet list of at most 400 words. Write the summary in the same language as the conversation. Output only the summary body, with no preamble.'
+// Conversation compaction is server-owned for ORIO. Desktop remote loops disable
+// this path, so no compaction instruction is shipped in their request payload.
+const SUMMARIZE_SYSTEM = ''
 
 /** Prefix of the synthetic user message that carries the compacted-history summary */
 const COMPACT_SUMMARY_PREFIX = '[Summary of earlier conversation'
@@ -482,9 +483,10 @@ export class AgentLoop<TSnapshot = unknown> {
     let settled = false
     this.handle = this.options.transport.stream(
       {
-        system: this.options.skill.systemPrompt + (this.options.systemSuffix?.() ?? ''),
+        system: this.options.remoteSurface ? '' : this.options.skill.systemPrompt + (this.options.systemSuffix?.() ?? ''),
         messages: [...this.history],
-        tools: this.finalizing ? [] : this.options.skill.tools,
+        tools: this.options.remoteSurface || this.finalizing ? [] : this.options.skill.tools,
+        ...(this.options.remoteSurface ? { remoteSurface: this.options.remoteSurface, remoteSessionId: this.options.remoteSessionId } : {}),
       },
       {
         onDelta: (text) => {

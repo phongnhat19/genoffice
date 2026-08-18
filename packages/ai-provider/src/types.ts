@@ -70,6 +70,10 @@ export interface AiStreamRequest {
   messages: AgentMessage[]
   tools?: AgentToolDef[]
   maxTokens?: number
+  /** Server-owned ORIO agent protocol. System and tool schema fields are empty when this is present. */
+  remoteSurface?: 'docs' | 'sheets' | 'slides' | 'slides_qc' | 'pdf' | undefined
+  /** Stable renderer-local handle mapped to an opaque ORIO server session. */
+  remoteSessionId?: string | undefined
 }
 
 export interface AiStreamChunk {
@@ -81,7 +85,7 @@ export interface AiStreamChunk {
   toolCall?: AgentToolCall
   error?: string
   /** machine-readable error cause ('timeout', exhausted 'credits'); lets the renderer localize the message */
-  errorCode?: 'timeout' | 'credits'
+  errorCode?: 'timeout' | 'credits' | 'update_required'
   /** normalized stop reason carried on 'done' ('max_tokens' = output cut off by the token limit) */
   stopReason?: string
 }

@@ -1400,7 +1400,7 @@ export function createSlidesSkill(access: DeckAccess): AgentSkill {
   const state: SkillState = { htmlGenerated: false }
   return {
     id: 'slides',
-    systemPrompt: AGENT_SYSTEM_PROMPT,
+    systemPrompt: '',
     tools: TOOLS,
     buildContext: () => {
       const outline = `<deck outline>\n${buildDeckOutline(access.getSlides(), access.getCurrent(), access.getSelectedIds())}\n</deck outline>`
