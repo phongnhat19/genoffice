@@ -210,15 +210,26 @@ export class OrioAiService {
     const callback = new URL(path, 'http://127.0.0.1')
     const params = callback.searchParams
     const finish = (ok: boolean, message: string) => {
-      response.writeHead(ok ? 200 : 400, { 'content-type': 'text/html; charset=utf-8' })
+      response.writeHead(ok ? 200 : 400, {
+        connection: 'close',
+        'content-type': 'text/html; charset=utf-8',
+      })
       response.end(`<h2>${message}</h2><p>You can return to ORIO.</p>`)
       if (oauth) clearTimeout(oauth.timeout)
       oauth?.server.close()
       this.oauth = undefined
     }
+
+    // Browsers may request /favicon.ico or revisit the callback after a
+    // successful redirect. Those requests are unrelated to the OAuth result
+    // and must never overwrite a valid token set with an expired state.
+    if (!oauth || callback.pathname !== oauth.callbackPath) {
+      response.writeHead(404, { connection: 'close', 'content-type': 'text/plain; charset=utf-8' })
+      response.end('Not found')
+      return
+    }
+
     if (
-      !oauth ||
-      callback.pathname !== oauth.callbackPath ||
       oauth.expiresAt < Date.now() ||
       params.get('state') !== oauth.state ||
       params.get('error') ||

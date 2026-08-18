@@ -83,6 +83,7 @@ export function AiComposer({
       <textarea
         ref={ref}
         value={value}
+        spellCheck={false}
         placeholder={placeholder}
         aria-label={ariaLabel}
         rows={1}
