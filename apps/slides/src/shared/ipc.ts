@@ -1007,7 +1007,7 @@ export interface SlidesApi {
       })
     | { error: string }
   >
-  /** Whether cloud single-page generation (gsk slide_generate) is available (GENOFFICE_CLOUD_SLIDE=1 + gsk login) */
+  /** Whether managed cloud single-page generation is available. */
   cloudGenStatus: () => Promise<{ enabled: boolean }>
   /** Cloud single-page generation: brief → one-slide pptx temp file; the marker goes into an htmlToPptx pagesHtml slot in place of HTML */
   cloudGeneratePage: (op: {
@@ -1019,6 +1019,13 @@ export interface SlidesApi {
     width?: number
     height?: number
   }) => Promise<{ ok: boolean; marker?: string; error?: string }>
+  /** Generate a server-owned presentation Style Skill from a topic and optional preferences. */
+  generateStyleSkill: (request: {
+    requestId: string
+    topic: string
+    styleHint?: string
+    questionnaire?: string
+  }) => Promise<{ ok: boolean; styleSkill?: string; error?: string }>
   editText: (op: EditTextOp) => Promise<RenderSlide | null>
   /** Change font/size on selected elements wholesale (elements without text ignored; returns null if all ignored) */
   setElementFont: (op: SetElementFontOp) => Promise<RenderSlide | null>
@@ -1315,7 +1322,7 @@ export interface SlidesApi {
     hPx: number
     fitWidthPx: number
   }) => Promise<{ slide: RenderSlide; sourceId: string } | null>
-  /** gsk (Genspark) AI image generation/editing, returns the image URL (error prompts login when logged out) */
+  /** AI image generation/editing, returns an image URL. */
   generateImage: (op: {
     prompt: string
     model?: string
@@ -1323,13 +1330,11 @@ export interface SlidesApi {
     aspectRatio?: string
     imageSize?: string
   }) => Promise<{ url?: string; error?: string }>
-  /** gsk (Genspark) media analysis: image/audio/video content understanding, returns analysis text */
+  /** AI media analysis: image/audio/video content understanding, returns analysis text. */
   analyzeMedia: (op: {
     mediaUrls: string[]
     requirements: string
   }) => Promise<{ text?: string; error?: string }>
-  /** Genspark availability is disabled for ORIO. */
-  // gskStatus: () => Promise<{ available: boolean; email?: string }>
   onAiStream: (handler: (chunk: AiStreamChunk) => void) => () => void
   /** Style Skill sidecar: write styleSkill to a same-named .styleskill.json next to the draft */
   saveStyleSidecar: (data: {

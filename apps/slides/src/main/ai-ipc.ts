@@ -75,6 +75,12 @@ export function registerAiIpc(): void {
     activeAiStreams.get(requestId)?.abort()
   })
 
+  ipcMain.handle(
+    'ai:generate-slides-style-skill',
+    async (_event, request: { requestId: string; topic: string; styleHint?: string; questionnaire?: string }) =>
+      orio.generateSlidesStyleSkill(request),
+  )
+
   // Search tools (content + images), Serper with DuckDuckGo fallback
   ipcMain.handle('ai:web-search', async (_event, query: string, maxResults?: number) => {
     try {

@@ -14,10 +14,6 @@ import {
 } from './shared'
 
 export type { ImageSearchResult, WebSearchResult } from './shared'
-// Genspark cloud helpers are intentionally disabled for ORIO desktop builds.
-// export * from './gsk'
-// export * from './genoffice-auth'
-
 const SERPER_KEY = () => process.env.SERPER_API_KEY ?? ''
 
 // ── Web search ──────────────────────────────────────────────────────

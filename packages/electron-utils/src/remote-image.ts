@@ -1,6 +1,5 @@
-/// Downloader for AI-inserted images. Image-search results largely live on the
-/// Third-party image download helper. Genspark-specific handling is disabled
-/// for ORIO, so those URLs are never fetched by this helper.
+/// Downloader for AI-inserted images. Third-party image download handling is
+/// deliberately restricted to safe public hosts.
 
 import { fetchWithSsrfGuard, type FetchWithSsrfGuardOptions } from './safe-remote-url'
 
@@ -14,16 +13,12 @@ export function remoteImageHeaders(rawUrl: string): Record<string, string> {
     // content-negotiating CDNs to send bytes that end up mislabeled.
     Accept: 'image/png,image/jpeg,image/gif,image/*;q=0.8,*/*;q=0.5',
   }
-  // Genspark CDN access is intentionally disabled for ORIO.
-  // if (new URL(rawUrl).hostname.endsWith('.genspark.ai')) {
-  //   headers.Referer = 'https://www.genspark.ai/'
-  // }
   return headers
 }
 
 /**
  * fetchWithSsrfGuard specialized for image downloads: browser-like headers
- * (with a Referer for the Genspark CDN) and retries on transient failures
+ * and retries on transient failures
  * (network errors, 403/408/429, 5xx). An SSRF-blocked URL still returns null
  * immediately — that outcome never changes on retry.
  */

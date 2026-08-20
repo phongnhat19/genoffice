@@ -24,8 +24,6 @@ import { createHash, randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync } from 'node:fs'
 import { userInfo } from 'node:os'
 import { dirname, join } from 'node:path'
-// Genspark cloud generation is disabled for ORIO.
-// import { gskApiKey, gskSlideGenerate, setGskProxyUrl } from '@genoffice/ai-search'
 import {
   appMenuLabels,
   contextMenuLabels,
@@ -1285,8 +1283,7 @@ export function registerSlidesIpc(): void {
     )
     return rebuildSlide(session, op.slideIndex)
   })
-  // Genspark cloud slide generation is disabled. Keep the renderer IPC stable
-  // so callers receive an explicit unavailable result instead of a missing handler.
+  // Keep the renderer IPC stable while cloud page generation is unavailable.
   ipcMain.handle('slides:cloud-gen-status', () => ({ enabled: false }))
   ipcMain.handle('slides:cloud-page-generate', async () => ({
     ok: false,
@@ -3829,8 +3826,6 @@ export function installSlidesMenu(): void {
  */
 async function applyMainProcessProxy(): Promise<void> {
   const setDispatcher = async (proxyUrl: string) => {
-    // Genspark CLI proxy forwarding is disabled for ORIO.
-    // setGskProxyUrl(proxyUrl)
     try {
       const { ProxyAgent, setGlobalDispatcher } = await import('undici')
       setGlobalDispatcher(new ProxyAgent(proxyUrl))

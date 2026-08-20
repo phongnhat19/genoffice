@@ -117,12 +117,6 @@
   height: 58px;
 }
 
-/* each glyph carries different padding inside its canvas; pull it out so the
- * visible left edge of the artwork sits on the text axis below */
-.onb-art-gift {
-  margin-left: -6px;
-}
-
 .onb-art-check {
   margin-left: -4px;
 }

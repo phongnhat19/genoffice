@@ -346,6 +346,13 @@ export class OrioAiService {
     const response = await this.request('/api/v1/ai/chat', request)
     return (await response.json()) as AiChatResponse
   }
+  async generateSlidesStyleSkill(
+    request: { requestId: string; topic: string; styleHint?: string; questionnaire?: string },
+    signal?: AbortSignal,
+  ): Promise<{ ok: boolean; styleSkill?: string; error?: string }> {
+    const response = await this.request('/api/v1/ai/slides/style-skill', request, signal)
+    return (await response.json()) as { ok: boolean; styleSkill?: string; error?: string }
+  }
   async stream(
     request: OrioStreamRequest,
     onChunk: (chunk: AiStreamChunk) => void,

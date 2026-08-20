@@ -108,6 +108,12 @@ const api: SlidesApi = {
     width?: number
     height?: number
   }) => ipcRenderer.invoke('slides:cloud-page-generate', op),
+  generateStyleSkill: (request: {
+    requestId: string
+    topic: string
+    styleHint?: string
+    questionnaire?: string
+  }) => ipcRenderer.invoke('ai:generate-slides-style-skill', request),
   editText: (op: EditTextOp) => ipcRenderer.invoke('slides:edit-text', op),
   setElementFont: (op: SetElementFontOp) => ipcRenderer.invoke('slides:set-element-font', op),
   setElementParagraphFormat: (op: SetElementParagraphFormatOp) =>
@@ -297,8 +303,6 @@ const api: SlidesApi = {
   }) => ipcRenderer.invoke('ai:generate-image', op),
   analyzeMedia: (op: { mediaUrls: string[]; requirements: string }) =>
     ipcRenderer.invoke('ai:analyze-media', op),
-  // Genspark status IPC is disabled for ORIO.
-  // gskStatus: () => ipcRenderer.invoke('ai:gsk-status'),
   onAiStream: (handler: (chunk: AiStreamChunk) => void) => {
     const listener = (_e: IpcRendererEvent, chunk: AiStreamChunk) => handler(chunk)
     ipcRenderer.on('ai:stream-chunk', listener)

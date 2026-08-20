@@ -6,7 +6,6 @@ export const aiStrings = defineStrings({
     aiComposerPlaceholderBuild: '描述要生成的表格、数据或图表…',
     aiEmptyBuildTitle: '让 AI 帮你从零建表',
     aiEmptyBuildBody: '描述想要的表格、数据或图表，AI 直接生成。',
-    aiGskLoginBtn: '登录 ORIO',
     aiUndelivered: '未送达,本条不会生效',
     aiRetry: '重试',
     aiOpenAssistant: '打开 AI 助手',
@@ -66,7 +65,6 @@ export const aiStrings = defineStrings({
     aiSave: '保存',
     aiUnknownError: '未知错误',
     aiTimeoutError: 'AI 请求超时：网络长时间无响应，已停止。请检查网络后重试',
-    aiCreditsExhausted: 'ORIO 积分已用完，请前往 genspark.ai/pricing 充值后重试',
     aiToolWorkbookContext: '读取工作表信息',
     aiToolReadRange: '读取范围',
     aiToolReadRangeOf: '读取范围 {range}',
@@ -89,7 +87,6 @@ export const aiStrings = defineStrings({
     aiComposerPlaceholderBuild: 'Describe the table, data, or chart to create…',
     aiEmptyBuildTitle: 'Let AI build this workbook for you',
     aiEmptyBuildBody: 'Describe the table, data, or chart you need — AI creates it in place.',
-    aiGskLoginBtn: 'Sign in to ORIO',
     aiUndelivered: 'Not delivered — this message had no effect',
     aiRetry: 'Retry',
     aiOpenAssistant: 'Open AI assistant',
@@ -154,8 +151,6 @@ export const aiStrings = defineStrings({
     aiUnknownError: 'Unknown error',
     aiTimeoutError:
       'AI request timed out: no response from the network, so the run was stopped. Check your connection and try again',
-    aiCreditsExhausted:
-      'Your ORIO credits have run out. Visit genspark.ai/pricing to top up, then try again',
     aiToolWorkbookContext: 'Read workbook info',
     aiToolReadRange: 'Read range',
     aiToolReadRangeOf: 'Read range {range}',
@@ -178,7 +173,6 @@ export const aiStrings = defineStrings({
     aiComposerPlaceholderBuild: '作りたい表・データ・グラフを入力…',
     aiEmptyBuildTitle: 'AI にシート作りを任せる',
     aiEmptyBuildBody: '欲しい表・データ・グラフを伝えると、AI がその場で作成します。',
-    aiGskLoginBtn: 'ORIO にサインイン',
     aiUndelivered: '未送信 — このメッセージは反映されていません',
     aiRetry: '再試行',
     aiOpenAssistant: 'AI アシスタントを開く',
@@ -242,8 +236,6 @@ export const aiStrings = defineStrings({
     aiUnknownError: '不明なエラー',
     aiTimeoutError:
       'AIリクエストがタイムアウトしました：ネットワークからの応答がないため中断しました。接続を確認して再試行してください',
-    aiCreditsExhausted:
-      'ORIOクレジットを使い切りました。genspark.ai/pricing でチャージしてから再試行してください',
     aiToolWorkbookContext: 'ブック情報を読み取り',
     aiToolReadRange: '範囲を読み取り',
     aiToolReadRangeOf: '範囲 {range} を読み取り',
@@ -266,7 +258,6 @@ export const aiStrings = defineStrings({
     aiComposerPlaceholderBuild: '만들 표, 데이터, 차트를 설명하세요…',
     aiEmptyBuildTitle: 'AI에게 시트 작성을 맡기세요',
     aiEmptyBuildBody: '원하는 표, 데이터, 차트를 설명하면 AI가 바로 만들어 줍니다.',
-    aiGskLoginBtn: 'ORIO 로그인',
     aiUndelivered: '전송되지 않음 — 이 메시지는 적용되지 않았습니다',
     aiRetry: '다시 시도',
     aiOpenAssistant: 'AI 도우미 열기',
@@ -329,8 +320,6 @@ export const aiStrings = defineStrings({
     aiUnknownError: '알 수 없는 오류',
     aiTimeoutError:
       'AI 요청 시간 초과: 네트워크 응답이 없어 중단되었습니다. 연결을 확인한 후 다시 시도해 주세요',
-    aiCreditsExhausted:
-      'ORIO 크레딧을 모두 사용했습니다. genspark.ai/pricing에서 충전한 후 다시 시도해 주세요',
     aiToolWorkbookContext: '통합 문서 정보 읽기',
     aiToolReadRange: '범위 읽기',
     aiToolReadRangeOf: '범위 {range} 읽기',
@@ -354,7 +343,6 @@ export const aiStrings = defineStrings({
     aiEmptyBuildTitle: "Laissez l'IA construire ce classeur pour vous",
     aiEmptyBuildBody:
       "Décrivez le tableau, les données ou le graphique voulu — l'IA les crée directement.",
-    aiGskLoginBtn: 'Se connecter à ORIO',
     aiUndelivered: 'Non envoyé — ce message n’a pas été pris en compte',
     aiRetry: 'Réessayer',
     aiOpenAssistant: "Ouvrir l'assistant IA",
@@ -420,8 +408,6 @@ export const aiStrings = defineStrings({
     aiUnknownError: 'Erreur inconnue',
     aiTimeoutError:
       "Délai de la requête IA dépassé : aucune réponse du réseau, l'exécution a été interrompue. Vérifiez votre connexion et réessayez",
-    aiCreditsExhausted:
-      'Vos crédits ORIO sont épuisés. Rechargez sur genspark.ai/pricing puis réessayez',
     aiToolWorkbookContext: 'Lire les informations du classeur',
     aiToolReadRange: 'Lire la plage',
     aiToolReadRangeOf: 'Lire la plage {range}',
@@ -445,7 +431,6 @@ export const aiStrings = defineStrings({
     aiEmptyBuildTitle: 'Lass die KI diese Arbeitsmappe für dich aufbauen',
     aiEmptyBuildBody:
       'Beschreibe die gewünschte Tabelle, Daten oder Diagramme — die KI erstellt sie direkt.',
-    aiGskLoginBtn: 'Bei ORIO anmelden',
     aiUndelivered: 'Nicht zugestellt — diese Nachricht wurde nicht verarbeitet',
     aiRetry: 'Erneut versuchen',
     aiOpenAssistant: 'KI-Assistenten öffnen',
@@ -511,8 +496,6 @@ export const aiStrings = defineStrings({
     aiUnknownError: 'Unbekannter Fehler',
     aiTimeoutError:
       'Zeitüberschreitung der KI-Anfrage: keine Antwort vom Netzwerk, der Vorgang wurde abgebrochen. Prüfe deine Verbindung und versuche es erneut',
-    aiCreditsExhausted:
-      'Deine ORIO-Credits sind aufgebraucht. Lade unter genspark.ai/pricing auf und versuche es erneut',
     aiToolWorkbookContext: 'Arbeitsmappeninformationen lesen',
     aiToolReadRange: 'Bereich lesen',
     aiToolReadRangeOf: 'Bereich {range} lesen',
@@ -536,7 +519,6 @@ export const aiStrings = defineStrings({
     aiEmptyBuildTitle: 'Deja que la IA construya este libro por ti',
     aiEmptyBuildBody:
       'Describe la tabla, los datos o el gráfico que necesitas: la IA los crea directamente.',
-    aiGskLoginBtn: 'Iniciar sesión en ORIO',
     aiUndelivered: 'No entregado: este mensaje no tuvo efecto',
     aiRetry: 'Reintentar',
     aiOpenAssistant: 'Abrir el asistente de IA',
@@ -601,8 +583,6 @@ export const aiStrings = defineStrings({
     aiUnknownError: 'Error desconocido',
     aiTimeoutError:
       'La solicitud de IA agotó el tiempo de espera: no hubo respuesta de la red y se detuvo. Comprueba tu conexión e inténtalo de nuevo',
-    aiCreditsExhausted:
-      'Tus créditos de ORIO se han agotado. Recarga en genspark.ai/pricing e inténtalo de nuevo',
     aiToolWorkbookContext: 'Leer información del libro',
     aiToolReadRange: 'Leer rango',
     aiToolReadRangeOf: 'Leer rango {range}',
@@ -625,7 +605,6 @@ export const aiStrings = defineStrings({
     aiComposerPlaceholderBuild: 'อธิบายตาราง ข้อมูล หรือแผนภูมิที่จะสร้าง…',
     aiEmptyBuildTitle: 'ให้ AI สร้างเวิร์กบุ๊กนี้ให้คุณ',
     aiEmptyBuildBody: 'อธิบายตาราง ข้อมูล หรือแผนภูมิที่ต้องการ แล้ว AI จะสร้างให้ทันที',
-    aiGskLoginBtn: 'ลงชื่อเข้าใช้ ORIO',
     aiUndelivered: 'ส่งไม่สำเร็จ — ข้อความนี้ไม่มีผล',
     aiRetry: 'ลองอีกครั้ง',
     aiOpenAssistant: 'เปิดผู้ช่วย AI',
@@ -688,8 +667,6 @@ export const aiStrings = defineStrings({
     aiUnknownError: 'ข้อผิดพลาดที่ไม่รู้จัก',
     aiTimeoutError:
       'คำขอ AI หมดเวลา: เครือข่ายไม่ตอบสนอง จึงหยุดการทำงาน โปรดตรวจสอบการเชื่อมต่อแล้วลองใหม่',
-    aiCreditsExhausted:
-      'เครดิต ORIO ของคุณหมดแล้ว โปรดเติมเครดิตที่ genspark.ai/pricing แล้วลองใหม่',
     aiToolWorkbookContext: 'อ่านข้อมูลเวิร์กบุ๊ก',
     aiToolReadRange: 'อ่านช่วง',
     aiToolReadRangeOf: 'อ่านช่วง {range}',
@@ -713,7 +690,6 @@ export const aiStrings = defineStrings({
     aiEmptyBuildTitle: 'Biarkan AI membangun buku kerja ini untuk Anda',
     aiEmptyBuildBody:
       'Jelaskan tabel, data, atau bagan yang Anda perlukan — AI langsung membuatnya.',
-    aiGskLoginBtn: 'Masuk ke ORIO',
     aiUndelivered: 'Tidak terkirim — pesan ini tidak diproses',
     aiRetry: 'Coba lagi',
     aiOpenAssistant: 'Buka asisten AI',
@@ -777,8 +753,6 @@ export const aiStrings = defineStrings({
     aiUnknownError: 'Kesalahan tidak dikenal',
     aiTimeoutError:
       'Permintaan AI habis waktu: jaringan tidak merespons sehingga proses dihentikan. Periksa koneksi Anda lalu coba lagi',
-    aiCreditsExhausted:
-      'Kredit ORIO Anda telah habis. Isi ulang di genspark.ai/pricing lalu coba lagi',
     aiToolWorkbookContext: 'Baca info buku kerja',
     aiToolReadRange: 'Baca rentang',
     aiToolReadRangeOf: 'Baca rentang {range}',
@@ -801,7 +775,6 @@ export const aiStrings = defineStrings({
     aiComposerPlaceholderBuild: 'Опишите таблицу, данные или диаграмму для создания…',
     aiEmptyBuildTitle: 'Пусть ИИ построит эту книгу за вас',
     aiEmptyBuildBody: 'Опишите нужную таблицу, данные или диаграмму — ИИ создаст их на месте.',
-    aiGskLoginBtn: 'Войти в ORIO',
     aiUndelivered: 'Не доставлено — это сообщение не было обработано',
     aiRetry: 'Повторить',
     aiOpenAssistant: 'Открыть ИИ-помощника',
@@ -866,8 +839,6 @@ export const aiStrings = defineStrings({
     aiUnknownError: 'Неизвестная ошибка',
     aiTimeoutError:
       'Тайм-аут запроса ИИ: сеть не отвечает, выполнение остановлено. Проверьте подключение и повторите попытку',
-    aiCreditsExhausted:
-      'Кредиты ORIO исчерпаны. Пополните баланс на genspark.ai/pricing и повторите попытку',
     aiToolWorkbookContext: 'Чтение сведений о книге',
     aiToolReadRange: 'Чтение диапазона',
     aiToolReadRangeOf: 'Чтение диапазона {range}',
@@ -890,7 +861,6 @@ export const aiStrings = defineStrings({
     aiComposerPlaceholderBuild: 'صف الجدول أو البيانات أو المخطط المطلوب إنشاؤه…',
     aiEmptyBuildTitle: 'دع الذكاء الاصطناعي ينشئ هذا المصنف لك',
     aiEmptyBuildBody: 'صف الجدول أو البيانات أو المخطط الذي تريده — ينشئه الذكاء الاصطناعي مباشرة.',
-    aiGskLoginBtn: 'تسجيل الدخول إلى ORIO',
     aiUndelivered: 'لم يتم الإرسال — لم يُعالَج هذا الطلب',
     aiRetry: 'إعادة المحاولة',
     aiOpenAssistant: 'فتح مساعد الذكاء الاصطناعي',
@@ -952,8 +922,6 @@ export const aiStrings = defineStrings({
     aiUnknownError: 'خطأ غير معروف',
     aiTimeoutError:
       'انتهت مهلة طلب الذكاء الاصطناعي: لا توجد استجابة من الشبكة وتم الإيقاف. تحقق من الاتصال وحاول مجددًا',
-    aiCreditsExhausted:
-      'نفدت أرصدة ORIO لديك. يرجى إعادة الشحن عبر genspark.ai/pricing ثم المحاولة مجددًا',
     aiToolWorkbookContext: 'قراءة معلومات المصنف',
     aiToolReadRange: 'قراءة النطاق',
     aiToolReadRangeOf: 'قراءة النطاق {range}',
@@ -976,7 +944,6 @@ export const aiStrings = defineStrings({
     aiComposerPlaceholderBuild: 'Descreva a tabela, os dados ou o gráfico a criar…',
     aiEmptyBuildTitle: 'Deixe a IA montar esta pasta de trabalho para você',
     aiEmptyBuildBody: 'Descreva a tabela, os dados ou o gráfico que precisa — a IA cria na hora.',
-    aiGskLoginBtn: 'Entrar no ORIO',
     aiUndelivered: 'Não entregue — esta mensagem não teve efeito',
     aiRetry: 'Tentar novamente',
     aiOpenAssistant: 'Abrir assistente de IA',
@@ -1041,8 +1008,6 @@ export const aiStrings = defineStrings({
     aiUnknownError: 'Erro desconhecido',
     aiTimeoutError:
       'A solicitação de IA expirou: sem resposta da rede, a execução foi interrompida. Verifique sua conexão e tente novamente',
-    aiCreditsExhausted:
-      'Seus créditos ORIO acabaram. Recarregue em genspark.ai/pricing e tente novamente',
     aiToolWorkbookContext: 'Ler informações da pasta de trabalho',
     aiToolReadRange: 'Ler intervalo',
     aiToolReadRangeOf: 'Ler intervalo {range}',
@@ -1066,7 +1031,6 @@ export const aiStrings = defineStrings({
     aiEmptyBuildTitle: "Lascia che l'IA costruisca questa cartella di lavoro",
     aiEmptyBuildBody:
       'Descrivi la tabella, i dati o il grafico che ti servono: l’IA li crea subito.',
-    aiGskLoginBtn: 'Accedi a ORIO',
     aiUndelivered: 'Non recapitato — questo messaggio non ha avuto effetto',
     aiRetry: 'Riprova',
     aiOpenAssistant: "Apri l'assistente IA",
@@ -1131,8 +1095,6 @@ export const aiStrings = defineStrings({
     aiUnknownError: 'Errore sconosciuto',
     aiTimeoutError:
       'Richiesta IA scaduta: nessuna risposta dalla rete, esecuzione interrotta. Controlla la connessione e riprova',
-    aiCreditsExhausted:
-      'I tuoi crediti ORIO sono esauriti. Ricarica su genspark.ai/pricing e riprova',
     aiToolWorkbookContext: 'Lettura delle informazioni della cartella di lavoro',
     aiToolReadRange: "Lettura dell'intervallo",
     aiToolReadRangeOf: "Lettura dell'intervallo {range}",
@@ -1155,7 +1117,6 @@ export const aiStrings = defineStrings({
     aiComposerPlaceholderBuild: 'Opisz tabelę, dane lub wykres do utworzenia…',
     aiEmptyBuildTitle: 'Pozwól AI zbudować ten skoroszyt',
     aiEmptyBuildBody: 'Opisz potrzebną tabelę, dane lub wykres — AI utworzy je od razu.',
-    aiGskLoginBtn: 'Zaloguj się do ORIO',
     aiUndelivered: 'Niedostarczone — ta wiadomość nie została przetworzona',
     aiRetry: 'Ponów',
     aiOpenAssistant: 'Otwórz asystenta AI',
@@ -1220,8 +1181,6 @@ export const aiStrings = defineStrings({
     aiUnknownError: 'Nieznany błąd',
     aiTimeoutError:
       'Przekroczono limit czasu żądania AI: brak odpowiedzi sieci, przerwano. Sprawdź połączenie i spróbuj ponownie',
-    aiCreditsExhausted:
-      'Twoje kredyty ORIO wyczerpały się. Doładuj konto na genspark.ai/pricing i spróbuj ponownie',
     aiToolWorkbookContext: 'Odczyt informacji o skoroszycie',
     aiToolReadRange: 'Odczyt zakresu',
     aiToolReadRangeOf: 'Odczyt zakresu {range}',
@@ -1245,7 +1204,6 @@ export const aiStrings = defineStrings({
     aiEmptyBuildTitle: 'Laat AI deze werkmap voor je opbouwen',
     aiEmptyBuildBody:
       'Beschrijf de tabel, gegevens of grafiek die je nodig hebt — AI maakt het direct.',
-    aiGskLoginBtn: 'Aanmelden bij ORIO',
     aiUndelivered: 'Niet afgeleverd — dit bericht is niet verwerkt',
     aiRetry: 'Opnieuw proberen',
     aiOpenAssistant: 'AI-assistent openen',
@@ -1310,8 +1268,6 @@ export const aiStrings = defineStrings({
     aiUnknownError: 'Onbekende fout',
     aiTimeoutError:
       'AI-verzoek verlopen: geen reactie van het netwerk, uitvoering gestopt. Controleer je verbinding en probeer het opnieuw',
-    aiCreditsExhausted:
-      'Je ORIO-credits zijn op. Waardeer op via genspark.ai/pricing en probeer het opnieuw',
     aiToolWorkbookContext: 'Werkmapgegevens lezen',
     aiToolReadRange: 'Bereik lezen',
     aiToolReadRangeOf: 'Bereik {range} lezen',
@@ -1335,7 +1291,6 @@ export const aiStrings = defineStrings({
     aiEmptyBuildTitle: 'Biarkan AI membina buku kerja ini untuk anda',
     aiEmptyBuildBody:
       'Terangkan jadual, data atau carta yang anda perlukan — AI terus menciptanya.',
-    aiGskLoginBtn: 'Log masuk ke ORIO',
     aiUndelivered: 'Tidak dihantar — mesej ini tidak diproses',
     aiRetry: 'Cuba lagi',
     aiOpenAssistant: 'Buka pembantu AI',
@@ -1400,8 +1355,6 @@ export const aiStrings = defineStrings({
     aiUnknownError: 'Ralat tidak diketahui',
     aiTimeoutError:
       'Permintaan AI tamat masa: rangkaian tidak memberi respons, proses dihentikan. Semak sambungan anda dan cuba lagi',
-    aiCreditsExhausted:
-      'Kredit ORIO anda telah habis. Tambah nilai di genspark.ai/pricing dan cuba lagi',
     aiToolWorkbookContext: 'Baca maklumat buku kerja',
     aiToolReadRange: 'Baca julat',
     aiToolReadRangeOf: 'Baca julat {range}',
@@ -1424,7 +1377,6 @@ export const aiStrings = defineStrings({
     aiComposerPlaceholderBuild: 'תארו את הטבלה, הנתונים או התרשים ליצירה…',
     aiEmptyBuildTitle: 'תנו ל-AI לבנות את חוברת העבודה הזו עבורכם',
     aiEmptyBuildBody: 'תארו את הטבלה, הנתונים או התרשים הדרושים — ה-AI יוצר אותם במקום.',
-    aiGskLoginBtn: 'התחבר ל-ORIO',
     aiUndelivered: 'לא נמסר — הודעה זו לא עובדה',
     aiRetry: 'נסה שוב',
     aiOpenAssistant: 'פתיחת עוזר ה-AI',
@@ -1485,7 +1437,6 @@ export const aiStrings = defineStrings({
     aiSave: 'שמירה',
     aiUnknownError: 'שגיאה לא ידועה',
     aiTimeoutError: 'תם הזמן לבקשת ה-AI: אין תגובה מהרשת וההרצה הופסקה. בדוק את החיבור ונסה שוב',
-    aiCreditsExhausted: 'קרדיטי ORIO שלך אזלו. טען מחדש ב-genspark.ai/pricing ונסה שוב',
     aiToolWorkbookContext: 'קריאת פרטי חוברת העבודה',
     aiToolReadRange: 'קריאת טווח',
     aiToolReadRangeOf: 'קריאת הטווח {range}',
@@ -1508,7 +1459,6 @@ export const aiStrings = defineStrings({
     aiComposerPlaceholderBuild: 'बनाने के लिए तालिका, डेटा या चार्ट बताएँ…',
     aiEmptyBuildTitle: 'AI से यह वर्कबुक बनवाएँ',
     aiEmptyBuildBody: 'जो तालिका, डेटा या चार्ट चाहिए बताएँ — AI उसे तुरंत बना देता है।',
-    aiGskLoginBtn: 'ORIO में साइन इन करें',
     aiUndelivered: 'नहीं भेजा गया — इस संदेश का कोई प्रभाव नहीं पड़ा',
     aiRetry: 'फिर से कोशिश करें',
     aiOpenAssistant: 'AI सहायक खोलें',
@@ -1572,8 +1522,6 @@ export const aiStrings = defineStrings({
     aiUnknownError: 'अज्ञात त्रुटि',
     aiTimeoutError:
       'AI अनुरोध का समय समाप्त: नेटवर्क से कोई प्रतिक्रिया नहीं मिली, इसलिए रोक दिया गया। कनेक्शन जांचें और फिर से प्रयास करें',
-    aiCreditsExhausted:
-      'आपके ORIO क्रेडिट समाप्त हो गए हैं। genspark.ai/pricing पर रिचार्ज करें और फिर से प्रयास करें',
     aiToolWorkbookContext: 'कार्यपुस्तिका की जानकारी पढ़ें',
     aiToolReadRange: 'श्रेणी पढ़ें',
     aiToolReadRangeOf: 'श्रेणी {range} पढ़ें',
@@ -1596,7 +1544,6 @@ export const aiStrings = defineStrings({
     aiComposerPlaceholderBuild: '描述要生成的表格、資料或圖表…',
     aiEmptyBuildTitle: '讓 AI 幫你從零建表',
     aiEmptyBuildBody: '描述想要的表格、資料或圖表，AI 直接生成。',
-    aiGskLoginBtn: '登入 ORIO',
     aiUndelivered: '未送達,本則不會生效',
     aiRetry: '重試',
     aiOpenAssistant: '開啟 AI 助手',
@@ -1656,7 +1603,6 @@ export const aiStrings = defineStrings({
     aiSave: '儲存',
     aiUnknownError: '未知錯誤',
     aiTimeoutError: 'AI 請求逾時：網路長時間無回應，已停止。請檢查網路後重試',
-    aiCreditsExhausted: 'ORIO 點數已用完，請前往 genspark.ai/pricing 儲值後重試',
     aiToolWorkbookContext: '讀取工作表資訊',
     aiToolReadRange: '讀取範圍',
     aiToolReadRangeOf: '讀取範圍 {range}',

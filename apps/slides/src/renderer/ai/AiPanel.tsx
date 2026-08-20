@@ -73,7 +73,7 @@ const PASTE_MIME_EXT: Record<string, string> = {
   'image/webp': 'webp',
 }
 
-/** File-type icons for attachment cards (Genspark attachment icon set); exts the
+/** File-type icons for attachment cards; extensions the
  *  attachment allowlist doesn't accept yet are mapped ahead so they light up when added */
 const ATTACHMENT_CARD_ICON_GROUPS: [icon: string, exts: string[]][] = [
   [fileWordIcon, ['doc', 'docx']],
@@ -202,8 +202,6 @@ interface ChatEntry {
   streaming?: boolean
   /** the run failed and this user message was rolled back out of the model context */
   undelivered?: boolean
-  /** the run failed because Genspark is signed out — render an inline sign-in button */
-  loginRequired?: boolean
   tools?: ToolActivity[]
   /** Generation progress card (only one per turn, replaced in real time) */
   deckProgress?: DeckProgressSnapshot
@@ -337,7 +335,7 @@ export function AiPanel({
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
   const [attachments, setAttachments] = useState<AttachmentMeta[]>([])
   const [attachNotice, setAttachNotice] = useState<string | null>(null)
-  /** data-URL previews for image attachments, keyed by path (Genspark composer thumbnails) */
+  /** data-URL previews for image attachments, keyed by path. */
   const [attachmentPreviews, setAttachmentPreviews] = useState<Record<string, string>>({})
   /** image paths with a read already issued — one readAttachmentImage per attach, even while pending */
   const previewRequestedRef = useRef(new Set<string>())
@@ -850,7 +848,7 @@ export function AiPanel({
           return false
         }
       },
-      // Cloud single-page generation (gsk slide_generate): the cloud service owns HTML writing +
+      // Cloud single-page generation: the service owns HTML writing +
       // pptx conversion; the deck-level style/outline stay local.
       generatePageCloud: async (args) => {
         try {
@@ -883,33 +881,19 @@ export function AiPanel({
       // Fixes "missing pages at the input side" at the root: the main agent doesn't hand-write dozens of pages of pages JSON.
       // In-tool independent Style Skill generation: one focused LLM call thinking only about the design system.
       generateStyleSkill: async (a) => {
-        const sys =
-          'You are a professional deck visual designer. Given the presentation topic and style preferences, produce a complete Style Skill (visual style guide). Output strictly in the structure below, only the Style Skill content, no explanations/markdown/code fences.\n\n' +
-          'Color rules (must use concrete hex values)\n' +
-          '  Main background: #hex\n' +
-          '  Per-page-type backgrounds:\n    cover: #hex\n    content: #hex\n    data: #hex\n    closing: #hex\n' +
-          '  (Background selection principles, highest priority first):\n' +
-          '   1) Style preference first: when a tone is explicit (dark theme, a brand color family, a certain texture), the background must honor it — do not fall back to a safe light color.\n' +
-          "   2) Then topic mood: serve the content's emotion and tone (serious/playful/artistic/tech/traditional); different topics should have clearly different backgrounds. Dark colors, brand colors, and saturated light colors are all legitimate choices.\n" +
-          '   3) Light neutral backgrounds are only a fallback: use only when the topic is neutral and the style expresses no clear preference.\n' +
-          '   Constraints: content pages share one background within a deck; the main background and main text color must have sufficient contrast (light text on dark, dark text on light).\n' +
-          '  Main text color: #hex\n  Primary accent: #hex\n  Secondary accent: #hex\n' +
-          '  (Iron rule: one accent color system across the whole deck — even when comparing multiple companies/products/options, do not assign each entity a different color; distinguish entities by name and typography. Never exceed the primary + secondary accents)\n' +
-          '  Card background: #hex\n  Border color: #hex\n\n' +
-          'Fonts\n  CJK title font: [font name]\n  Latin title font: [font name]\n  Body font: [font name]\n  Title size: [range]px\n  Body size: [range]px\n\n' +
-          'Layout variants per page type (list at least 2 variants each, format: variant name: description)\n' +
-          '  cover variants:\n    cover_full_image_overlay: full-bleed photo background + dark overlay, centered white title, bottom metadata bar\n    cover_split_color: two color blocks side by side (60/40)\n    cover_typography_hero: pure typography, no photo, huge title (100px+)\n    cover_dark_minimal: dark background, centered large title + a little accent color\n    cover_magazine: magazine-style title taking 60% + partial imagery\n    cover_split_image: title on the left half + hero image on the right half\n' +
-          '  content variants:\n    left_text_right_image | three_column_cards | hero_big_number | two_column_comparison | timeline_horizontal | full_image_text_overlay (give each a one-line description)\n' +
-          '  data variants:\n    kpi_cards_row: horizontal KPI cards\n    chart_with_insight: chart left + insight right\n    two_by_two_grid: 2x2 quadrants\n' +
-          '  closing variants:\n    closing_cta: centered title + contact info\n    closing_thank_you: full-bleed thank-you page\n\n' +
-          'Overall style: [one sentence describing the overall design language]'
-        const q = a.questionnaire ? `\nUser questionnaire answers: ${a.questionnaire}` : ''
-        const hint = a.styleHint ? `\nStyle preference: ${a.styleHint}` : ''
-        const userMsg = `Topic and style preferences: ${a.topic}${hint}${q}\nOutput the Style Skill.`
-        const r = await runLlmOnce(sys, userMsg, undefined, true, a.signal)
-        return r.ok && r.text
-          ? { ok: true, styleSkill: r.text.trim() }
-          : { ok: false, error: r.error ?? tGlobal('aiErrEmptyOutput') }
+        try {
+          const r = await window.slidesApi.generateStyleSkill({
+            requestId: crypto.randomUUID(),
+            topic: a.topic,
+            ...(a.styleHint ? { styleHint: a.styleHint } : {}),
+            ...(a.questionnaire ? { questionnaire: a.questionnaire } : {}),
+          })
+          return r.ok && r.styleSkill
+            ? { ok: true, styleSkill: r.styleSkill.trim() }
+            : { ok: false, error: r.error ?? tGlobal('aiErrEmptyOutput') }
+        } catch (e) {
+          return { ok: false, error: e instanceof Error ? e.message : String(e) }
+        }
       },
       planDeckOutline: async (a) => {
         // style is already produced independently by generateStyleSkill; this function only outputs core_hook + per-page outlines (layout chosen per the Style Skill).

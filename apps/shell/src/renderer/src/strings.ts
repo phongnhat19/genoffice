@@ -120,11 +120,6 @@ export const strings = {
     onbTitle1: '欢迎使用 ORIO',
     onbSubtitle1: '第一个开源的 AI 原生 Office 套件',
     onbBody1: '创建文档、制作表格、生成演示、审阅 PDF。AI 深度融入每个环节。',
-    onbTitle2: '这只是一个开始',
-    onbBody2:
-      'ORIO 目前处于 alpha 阶段。欢迎加入 ORIO Community 群聊，分享反馈，一起塑造它的未来。',
-    onbCredits: '活跃贡献者可获得 **1,000+ ORIO 积分**',
-    onbJoinCommunity: '加入 ORIO Community',
     onbSkip: '跳过',
     onbNext: '下一步',
     onbStart: '开始使用',
@@ -245,11 +240,6 @@ export const strings = {
     onbSubtitle1: 'The first open-source, AI-native office suite',
     onbBody1:
       'Create docs, build sheets, make slides, and review PDFs. AI is built into every step.',
-    onbTitle2: 'This is just the beginning',
-    onbBody2:
-      'ORIO is still in alpha. Join the group chat on ORIO Community to share feedback and help shape what comes next.',
-    onbCredits: 'Active contributors get **1,000+ ORIO credits**',
-    onbJoinCommunity: 'Join ORIO Community',
     onbSkip: 'Skip',
     onbNext: 'Next',
     onbStart: 'Get started',
@@ -387,11 +377,6 @@ export const strings = {
     onbSubtitle1: '初のオープンソース AI ネイティブ Office スイート',
     onbBody1:
       '文書の作成、表計算、プレゼン作成、PDF のレビュー。あらゆるステップに AI が組み込まれています。',
-    onbTitle2: 'これはまだ始まりにすぎません',
-    onbBody2:
-      'ORIO はまだアルファ版です。ORIO Community のグループチャットに参加して、フィードバックを共有し、今後の開発を一緒に形作りましょう。',
-    onbCredits: 'アクティブな貢献者への特典 **1,000+ ORIO クレジット**',
-    onbJoinCommunity: 'ORIO Community に参加',
     onbSkip: 'スキップ',
     onbNext: '次へ',
     onbStart: 'はじめる',
@@ -523,11 +508,6 @@ export const strings = {
     onbSubtitle1: '최초의 오픈소스 AI 네이티브 오피스 제품군',
     onbBody1:
       '문서 작성, 스프레드시트 제작, 프레젠테이션 생성, PDF 검토. 모든 단계에 AI가 녹아 있습니다.',
-    onbTitle2: '이제 시작일 뿐입니다',
-    onbBody2:
-      'ORIO는 아직 알파 단계입니다. ORIO Community 그룹 채팅에 참여해 피드백을 공유하고 앞으로의 방향을 함께 만들어 가세요.',
-    onbCredits: '활발한 기여자를 위한 혜택 **1,000+ ORIO 크레딧**',
-    onbJoinCommunity: 'ORIO Community 참여하기',
     onbSkip: '건너뛰기',
     onbNext: '다음',
     onbStart: '시작하기',
@@ -663,11 +643,6 @@ export const strings = {
     onbSubtitle1: 'La première suite bureautique open source et native IA',
     onbBody1:
       'Créez des documents, des feuilles de calcul et des présentations, et relisez des PDF. L’IA est intégrée à chaque étape.',
-    onbTitle2: 'Ce n’est qu’un début',
-    onbBody2:
-      'ORIO est encore en alpha. Rejoignez la discussion de groupe sur ORIO Community pour partager vos retours et façonner la suite.',
-    onbCredits: 'Les contributeurs actifs reçoivent **1 000+ crédits ORIO**',
-    onbJoinCommunity: 'Rejoindre ORIO Community',
     onbSkip: 'Passer',
     onbNext: 'Suivant',
     onbStart: 'Commencer',
@@ -804,11 +779,6 @@ export const strings = {
     onbSubtitle1: 'Die erste quelloffene, KI-native Office-Suite',
     onbBody1:
       'Dokumente erstellen, Tabellen bauen, Präsentationen gestalten und PDFs prüfen. KI ist in jedem Schritt integriert.',
-    onbTitle2: 'Das ist erst der Anfang',
-    onbBody2:
-      'ORIO ist noch in der Alpha-Phase. Treten Sie dem Gruppenchat auf ORIO Community bei, um Feedback zu teilen und die Zukunft mitzugestalten.',
-    onbCredits: 'Aktive Mitwirkende erhalten **1.000+ ORIO-Guthaben**',
-    onbJoinCommunity: 'ORIO Community beitreten',
     onbSkip: 'Überspringen',
     onbNext: 'Weiter',
     onbStart: 'Loslegen',
@@ -945,11 +915,6 @@ export const strings = {
     onbSubtitle1: 'La primera suite ofimática de código abierto y nativa de IA',
     onbBody1:
       'Crea documentos, hojas de cálculo y presentaciones, y revisa PDF. La IA está integrada en cada paso.',
-    onbTitle2: 'Esto es solo el comienzo',
-    onbBody2:
-      'ORIO aún está en alfa. Únete al chat grupal en ORIO Community para compartir comentarios y ayudar a dar forma a lo que viene.',
-    onbCredits: 'Los colaboradores activos reciben **1.000+ créditos de ORIO**',
-    onbJoinCommunity: 'Unirse a ORIO Community',
     onbSkip: 'Omitir',
     onbNext: 'Siguiente',
     onbStart: 'Empezar',
@@ -1080,11 +1045,6 @@ export const strings = {
     onbTitle1: 'ยินดีต้อนรับสู่ ORIO',
     onbSubtitle1: 'ชุดโปรแกรมออฟฟิศ AI-native โอเพนซอร์สตัวแรก',
     onbBody1: 'สร้างเอกสาร ทำสเปรดชีต สร้างงานนำเสนอ และตรวจทาน PDF ทุกขั้นตอนมี AI ในตัว',
-    onbTitle2: 'นี่เป็นเพียงจุดเริ่มต้น',
-    onbBody2:
-      'ORIO ยังอยู่ในช่วงอัลฟ่า เข้าร่วมแชทกลุ่มบน ORIO Community เพื่อแบ่งปันความคิดเห็นและร่วมกำหนดทิศทางต่อไป',
-    onbCredits: 'ผู้มีส่วนร่วมอย่างต่อเนื่องจะได้รับ **เครดิต ORIO กว่า 1,000**',
-    onbJoinCommunity: 'เข้าร่วม ORIO Community',
     onbSkip: 'ข้าม',
     onbNext: 'ถัดไป',
     onbStart: 'เริ่มใช้งาน',
@@ -1218,11 +1178,6 @@ export const strings = {
     onbSubtitle1: 'Suite office open source AI-native pertama',
     onbBody1:
       'Buat dokumen, susun spreadsheet, rancang presentasi, dan tinjau PDF. AI hadir di setiap langkah.',
-    onbTitle2: 'Ini baru permulaan',
-    onbBody2:
-      'ORIO masih dalam tahap alpha. Gabung obrolan grup di ORIO Community untuk berbagi masukan dan ikut menentukan arah ke depan.',
-    onbCredits: 'Kontributor aktif mendapat **1.000+ kredit ORIO**',
-    onbJoinCommunity: 'Gabung ORIO Community',
     onbSkip: 'Lewati',
     onbNext: 'Berikutnya',
     onbStart: 'Mulai',
@@ -1356,11 +1311,6 @@ export const strings = {
     onbSubtitle1: 'Первый открытый AI-нативный офисный пакет',
     onbBody1:
       'Создавайте документы, таблицы и презентации, работайте с PDF. ИИ встроен в каждый шаг.',
-    onbTitle2: 'Это только начало',
-    onbBody2:
-      'ORIO пока в альфа-версии. Присоединяйтесь к групповому чату в ORIO Community, чтобы делиться отзывами и влиять на дальнейшее развитие.',
-    onbCredits: 'Активные участники получают **1000+ кредитов ORIO**',
-    onbJoinCommunity: 'Присоединиться к ORIO Community',
     onbSkip: 'Пропустить',
     onbNext: 'Далее',
     onbStart: 'Начать',
@@ -1492,11 +1442,6 @@ export const strings = {
     onbSubtitle1: 'أول حزمة مكتبية مفتوحة المصدر وأصيلة في الذكاء الاصطناعي',
     onbBody1:
       'أنشئ المستندات وجداول البيانات والعروض التقديمية وراجع ملفات PDF. الذكاء الاصطناعي مدمج في كل خطوة.',
-    onbTitle2: 'هذه مجرد البداية',
-    onbBody2:
-      'لا يزال ORIO في مرحلة ألفا. انضم إلى الدردشة الجماعية على ORIO Community لمشاركة ملاحظاتك والمساهمة في تشكيل المستقبل.',
-    onbCredits: 'يحصل المساهمون النشطون على **+1,000 من أرصدة ORIO**',
-    onbJoinCommunity: 'الانضمام إلى ORIO Community',
     onbSkip: 'تخطي',
     onbNext: 'التالي',
     onbStart: 'ابدأ الآن',
@@ -1621,11 +1566,6 @@ export const strings = {
     onbSubtitle1: 'A primeira suíte de escritório open source e nativa de IA',
     onbBody1:
       'Crie documentos, planilhas e apresentações e revise PDFs. A IA está integrada em cada etapa.',
-    onbTitle2: 'Isto é só o começo',
-    onbBody2:
-      'O ORIO ainda está em alfa. Entre no chat em grupo no ORIO Community para compartilhar feedback e ajudar a moldar o que vem a seguir.',
-    onbCredits: 'Contribuidores ativos recebem **1.000+ créditos ORIO**',
-    onbJoinCommunity: 'Entrar no ORIO Community',
     onbSkip: 'Pular',
     onbNext: 'Avançar',
     onbStart: 'Começar',
@@ -1750,11 +1690,6 @@ export const strings = {
     onbSubtitle1: 'La prima suite per ufficio open source e nativa per l’IA',
     onbBody1:
       'Crea documenti, fogli di calcolo e presentazioni e rivedi i PDF. L’IA è integrata in ogni passaggio.',
-    onbTitle2: 'Questo è solo l’inizio',
-    onbBody2:
-      'ORIO è ancora in alpha. Unisciti alla chat di gruppo su ORIO Community per condividere feedback e contribuire a plasmare il futuro.',
-    onbCredits: 'I collaboratori attivi ricevono **1.000+ crediti ORIO**',
-    onbJoinCommunity: 'Unisciti a ORIO Community',
     onbSkip: 'Salta',
     onbNext: 'Avanti',
     onbStart: 'Inizia',
@@ -1878,11 +1813,6 @@ export const strings = {
     onbSubtitle1: 'Pierwszy otwartoźródłowy, natywnie oparty na AI pakiet biurowy',
     onbBody1:
       'Twórz dokumenty, arkusze i prezentacje oraz przeglądaj pliki PDF. AI jest wbudowana w każdy etap.',
-    onbTitle2: 'To dopiero początek',
-    onbBody2:
-      'ORIO jest wciąż w fazie alfa. Dołącz do czatu grupowego na ORIO Community, aby dzielić się opiniami i współtworzyć jego przyszłość.',
-    onbCredits: 'Aktywni współtwórcy otrzymują **1000+ kredytów ORIO**',
-    onbJoinCommunity: 'Dołącz do ORIO Community',
     onbSkip: 'Pomiń',
     onbNext: 'Dalej',
     onbStart: 'Rozpocznij',
@@ -2006,11 +1936,6 @@ export const strings = {
     onbSubtitle1: 'De eerste open source, AI-native officesuite',
     onbBody1:
       'Maak documenten, bouw spreadsheets, maak presentaties en beoordeel PDF-bestanden. AI zit in elke stap ingebouwd.',
-    onbTitle2: 'Dit is nog maar het begin',
-    onbBody2:
-      'ORIO is nog in alfa. Doe mee aan de groepschat op ORIO Community om feedback te delen en mee te bepalen wat er komt.',
-    onbCredits: 'Actieve bijdragers krijgen **1.000+ ORIO-credits**',
-    onbJoinCommunity: 'Word lid van ORIO Community',
     onbSkip: 'Overslaan',
     onbNext: 'Volgende',
     onbStart: 'Aan de slag',
@@ -2133,11 +2058,6 @@ export const strings = {
     onbSubtitle1: 'Suite pejabat sumber terbuka natif AI yang pertama',
     onbBody1:
       'Cipta dokumen, bina hamparan, hasilkan persembahan dan semak PDF. AI tersedia pada setiap langkah.',
-    onbTitle2: 'Ini baru permulaan',
-    onbBody2:
-      'ORIO masih dalam peringkat alfa. Sertai sembang kumpulan di ORIO Community untuk berkongsi maklum balas dan membentuk masa depannya.',
-    onbCredits: 'Penyumbang aktif menerima **1,000+ kredit ORIO**',
-    onbJoinCommunity: 'Sertai ORIO Community',
     onbSkip: 'Langkau',
     onbNext: 'Seterusnya',
     onbStart: 'Mula',
@@ -2257,11 +2177,6 @@ export const strings = {
     onbTitle1: 'ברוכים הבאים ל-ORIO',
     onbSubtitle1: 'חבילת המשרד הראשונה בקוד פתוח שהיא AI-נייטיב',
     onbBody1: 'צרו מסמכים, בנו גיליונות, הכינו מצגות ובדקו קובצי PDF. ה-AI מובנה בכל שלב.',
-    onbTitle2: 'זו רק ההתחלה',
-    onbBody2:
-      'ORIO עדיין בגרסת אלפא. הצטרפו לצ׳אט הקבוצתי ב-ORIO Community כדי לשתף משוב ולעזור לעצב את ההמשך.',
-    onbCredits: 'תורמים פעילים מקבלים **1,000+ נקודות ORIO**',
-    onbJoinCommunity: 'הצטרפו ל-ORIO Community',
     onbSkip: 'דילוג',
     onbNext: 'הבא',
     onbStart: 'להתחיל',
@@ -2386,11 +2301,6 @@ export const strings = {
     onbSubtitle1: 'पहला ओपन-सोर्स, AI-नेटिव ऑफ़िस सुइट',
     onbBody1:
       'दस्तावेज़ बनाएँ, स्प्रेडशीट तैयार करें, प्रस्तुतियाँ बनाएँ और PDF की समीक्षा करें। AI हर चरण में शामिल है।',
-    onbTitle2: 'यह तो बस शुरुआत है',
-    onbBody2:
-      'ORIO अभी अल्फ़ा में है। ORIO Community पर ग्रुप चैट से जुड़ें, फ़ीडबैक साझा करें और आगे की दिशा तय करने में मदद करें।',
-    onbCredits: 'सक्रिय योगदानकर्ताओं के लिए **1,000+ ORIO क्रेडिट**',
-    onbJoinCommunity: 'ORIO Community से जुड़ें',
     onbSkip: 'छोड़ें',
     onbNext: 'आगे',
     onbStart: 'शुरू करें',
@@ -2509,11 +2419,6 @@ export const strings = {
     onbTitle1: '歡迎使用 ORIO',
     onbSubtitle1: '第一個開源的 AI 原生 Office 套件',
     onbBody1: '建立文件、製作試算表、產生簡報、審閱 PDF。AI 深度融入每個環節。',
-    onbTitle2: '這只是一個開始',
-    onbBody2:
-      'ORIO 目前仍在 alpha 階段。歡迎加入 ORIO Community 群聊，分享回饋，一起打造它的未來。',
-    onbCredits: '活躍貢獻者可獲得 **1,000+ ORIO 點數**',
-    onbJoinCommunity: '加入 ORIO Community',
     onbSkip: '略過',
     onbNext: '下一步',
     onbStart: '開始使用',
