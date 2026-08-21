@@ -4966,19 +4966,155 @@ body.docs-crop-active
  * states: default · hover · focus · active · disabled · loading · error · success
  * contrast: pass (46–50)
  */
-.ai-provider-controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: end; gap: 6px; width: 100%; min-width: 0; padding: 10px 12px 8px; border-bottom: 1px solid var(--color-border-default); font-size: 11px; box-sizing: border-box; }
-.ai-provider-field { display: grid; min-width: 0; gap: 2px; color: var(--color-text-secondary); }
-.ai-provider-label { overflow: hidden; font-size: 10px; font-weight: 600; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
-.ai-provider-controls select { width: 100%; min-width: 0; height: 28px; border: 1px solid var(--color-border-default); border-radius: 6px; outline: 2px solid transparent; outline-offset: 1px; background: var(--color-bg-page); color: var(--color-text-primary); font: inherit; text-overflow: ellipsis; }
-@media (hover: hover) { .ai-provider-controls select:hover { background: var(--color-bg-subtle); } .ai-provider-connect:hover { background: var(--color-bg-subtle); } }
-.ai-provider-controls select:focus-visible, .ai-provider-connect:focus-visible { outline-color: var(--color-brand-secondary); }
-.ai-provider-controls select:active, .ai-provider-connect:active { transform: translateY(1px); }
-.ai-provider-controls select:disabled, .ai-provider-connect:disabled { cursor: not-allowed; opacity: .55; }
-.ai-provider-connect { height: 28px; border: 1px solid var(--color-border-default); border-radius: 6px; background: var(--color-bg-page); color: var(--color-brand-secondary); font: inherit; font-weight: 600; white-space: nowrap; cursor: pointer; }
-.ai-provider-status { min-width: 56px; overflow: hidden; color: var(--color-text-secondary); font-size: 10px; line-height: 28px; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
-.ai-provider-controls[data-state='error'] .ai-provider-status { color: var(--color-error); }
-.ai-provider-controls[data-state='success'] .ai-provider-status { color: var(--color-brand-secondary); }
-@media (max-width: 380px) { .ai-provider-controls { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .ai-provider-connect, .ai-provider-status { grid-column: 1 / -1; justify-self: start; text-align: left; } }
+.ai-provider-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--color-border-default);
+  font-size: 11px;
+  box-sizing: border-box;
+}
+.ai-provider-field {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  color: var(--color-text-secondary);
+}
+.ai-provider-label {
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ai-provider-controls select {
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 6px;
+  outline: 2px solid transparent;
+  outline-offset: 1px;
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
+  font: inherit;
+  text-overflow: ellipsis;
+}
+@media (hover: hover) {
+  .ai-provider-controls select:hover {
+    background: var(--color-bg-subtle);
+  }
+  .ai-provider-connect:hover {
+    background: var(--color-bg-subtle);
+  }
+}
+.ai-provider-controls select:focus-visible,
+.ai-provider-connect:focus-visible {
+  outline-color: var(--color-brand-secondary);
+}
+.ai-provider-controls select:active,
+.ai-provider-connect:active {
+  transform: translateY(1px);
+}
+.ai-provider-controls select:disabled,
+.ai-provider-connect:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.ai-provider-connect {
+  height: 28px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 6px;
+  background: var(--color-bg-page);
+  color: var(--color-brand-secondary);
+  font: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ai-provider-status {
+  min-width: 56px;
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: 10px;
+  line-height: 28px;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ai-provider-controls[data-state='error'] .ai-provider-status {
+  color: var(--color-error);
+}
+.ai-provider-controls[data-state='success'] .ai-provider-status {
+  color: var(--color-brand-secondary);
+}
+@media (max-width: 380px) {
+  .ai-provider-controls {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .ai-provider-connect,
+  .ai-provider-status {
+    grid-column: 1 / -1;
+    justify-self: start;
+    text-align: left;
+  }
+}
+
+/* OAuth is a deliberate first-run step: the composer remains unavailable until connected. */
+.ai-oauth-required > .ai-chat,
+.ai-oauth-required > .ai-composer {
+  display: none;
+}
+.ai-oauth-gate {
+  flex: 1;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  min-height: 0;
+  padding: 28px 24px;
+  color: var(--color-text-primary);
+  text-align: center;
+}
+.ai-oauth-gate-illustration {
+  width: 80px;
+  height: 60px;
+  color: var(--color-brand-secondary);
+  margin-bottom: 4px;
+}
+.ai-oauth-gate strong {
+  font-size: 15px;
+  line-height: 1.3;
+}
+.ai-oauth-gate p {
+  max-width: 245px;
+  margin: 0 0 6px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.ai-oauth-gate-loading {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+.ai-oauth-gate .ai-provider-controls {
+  display: flex;
+  width: auto;
+  padding: 0;
+  border: 0;
+}
+.ai-oauth-gate .ai-provider-field {
+  display: none;
+}
+.ai-oauth-gate .ai-provider-connect {
+  min-width: 96px;
+  padding: 0 12px;
+}
 
 .ai-composer-top {
   display: flex;

@@ -2,7 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, ReactElement } from 'react'
 import { AgentLoop } from '@genoffice/agent-core'
 import type { AiSettings } from '@genoffice/ai-provider'
-import { AiComposer, AiProviderControls, AiTypingIndicator } from '@genoffice/ui'
+import {
+  AiComposer,
+  AiOAuthAuthorizationPrompt,
+  AiProviderControls,
+  AiTypingIndicator,
+  isAiOAuthAuthorized,
+} from '@genoffice/ui'
 import { aiLangDirective, t as tGlobal, useI18n } from '../i18n/locale'
 import { Markdown } from '@genoffice/ui'
 import sendEnterOn from '../assets/send-enter-on.png'
@@ -265,10 +271,12 @@ export function AiPanel({
   const typingLabel =
     phase === 'replying' ? t('aiReplying') : phase === 'working' ? t('aiWorking') : t('aiThinking')
 
+  const oauthRequired = !isAiOAuthAuthorized(providerSettings)
+
   return (
     <aside
       ref={asideRef}
-      className={`copilot${resizing ? ' ai-panel-resizing' : ''}`}
+      className={`copilot${resizing ? ' ai-panel-resizing' : ''}${oauthRequired ? ' ai-oauth-required' : ''}`}
       style={{ width: '100%' }}
     >
       <div
@@ -303,6 +311,15 @@ export function AiPanel({
           </button>
         </div>
       </header>
+      {oauthRequired && (
+        <AiOAuthAuthorizationPrompt
+          settings={providerSettings}
+          onSettings={(settings) => {
+            settingsRef.current = settings
+            setProviderSettings(settings)
+          }}
+        />
+      )}
       {providerSettings && (
         <AiProviderControls
           settings={providerSettings}

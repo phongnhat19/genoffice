@@ -14,7 +14,13 @@ import { createFilesSkill } from './files-skill'
 import { createElectronTransport } from './transport'
 import { useI18n, t as tModule, aiLangDirective, type StringKey } from '../i18n/locale'
 import { Markdown } from '@genoffice/ui'
-import { AiComposer, AiProviderControls, AiTypingIndicator } from '@genoffice/ui'
+import {
+  AiComposer,
+  AiOAuthAuthorizationPrompt,
+  AiProviderControls,
+  AiTypingIndicator,
+  isAiOAuthAuthorized,
+} from '@genoffice/ui'
 import { OrioMark } from '../components/icons'
 import sendEnterOn from '../assets/send-enter-on.png'
 import sendEnterOff from '../assets/send-enter-off.png'
@@ -807,11 +813,13 @@ export function AiPanel({
     )
   }
 
+  const oauthRequired = !isAiOAuthAuthorized(providerSettings)
+
   return (
     <aside
       ref={asideRef}
       style={{ width: '100%' }}
-      className={`ai-panel${dragOver ? ' ai-panel-dragover' : ''}${resizing ? ' ai-panel-resizing' : ''}`}
+      className={`ai-panel${dragOver ? ' ai-panel-dragover' : ''}${resizing ? ' ai-panel-resizing' : ''}${oauthRequired ? ' ai-oauth-required' : ''}`}
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes('Files')) {
           e.preventDefault()
@@ -849,6 +857,10 @@ export function AiPanel({
           )}
         </div>
       </div>
+
+      {oauthRequired && (
+        <AiOAuthAuthorizationPrompt settings={providerSettings} onSettings={setProviderSettings} />
+      )}
 
       <div ref={logRef} className="ai-chat" onScroll={onLogScroll}>
         {/* past conversation (read-only transcript, not fed to the model), shown continuously with the current turn */}
@@ -1028,63 +1040,67 @@ export function AiPanel({
           header={
             <>
               <AiProviderControls settings={providerSettings} onSettings={setProviderSettings} />
-              {attachments.length > 0 && <div className="ai-attachments" onScroll={onAttachmentsScroll}>
-                {attachments.map((a) =>
-                  ATTACHMENT_IMAGE_EXTS.has(a.ext) ? (
-                    <span key={a.path} className="ai-attachment-thumb" title={a.path}>
-                      {attachmentPreviews[a.path] ? (
-                        <img src={attachmentPreviews[a.path]} alt={a.name} />
-                      ) : (
-                        <span className="ai-attachment-thumb-pending" aria-hidden>
-                          <img src={fileImageIcon} alt="" />
-                        </span>
-                      )}
-                      <button
-                        className="ai-attachment-thumb-remove"
-                        onClick={() => removeAttachment(a.path)}
-                        title={t('aiRemoveAttachmentTitle')}
-                        aria-label={t('aiRemoveAttachmentTitle')}
-                      >
-                        <svg width="16" height="16" viewBox="0 0 32 32" aria-hidden>
-                          <path
-                            d="M24 9.4L22.6 8L16 14.6L9.4 8L8 9.4l6.6 6.6L8 22.6L9.4 24l6.6-6.6l6.6 6.6l1.4-1.4l-6.6-6.6L24 9.4z"
-                            fill="currentColor"
-                            stroke="currentColor"
-                            strokeWidth="0.25"
-                          />
-                        </svg>
-                      </button>
-                    </span>
-                  ) : (
-                    <span key={a.path} className="ai-attachment-card" title={a.path}>
-                      <span className="ai-attachment-card-icon">
-                        <AttachmentCardIcon ext={a.ext} />
+              {attachments.length > 0 && (
+                <div className="ai-attachments" onScroll={onAttachmentsScroll}>
+                  {attachments.map((a) =>
+                    ATTACHMENT_IMAGE_EXTS.has(a.ext) ? (
+                      <span key={a.path} className="ai-attachment-thumb" title={a.path}>
+                        {attachmentPreviews[a.path] ? (
+                          <img src={attachmentPreviews[a.path]} alt={a.name} />
+                        ) : (
+                          <span className="ai-attachment-thumb-pending" aria-hidden>
+                            <img src={fileImageIcon} alt="" />
+                          </span>
+                        )}
+                        <button
+                          className="ai-attachment-thumb-remove"
+                          onClick={() => removeAttachment(a.path)}
+                          title={t('aiRemoveAttachmentTitle')}
+                          aria-label={t('aiRemoveAttachmentTitle')}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 32 32" aria-hidden>
+                            <path
+                              d="M24 9.4L22.6 8L16 14.6L9.4 8L8 9.4l6.6 6.6L8 22.6L9.4 24l6.6-6.6l6.6 6.6l1.4-1.4l-6.6-6.6L24 9.4z"
+                              fill="currentColor"
+                              stroke="currentColor"
+                              strokeWidth="0.25"
+                            />
+                          </svg>
+                        </button>
                       </span>
-                      <span className="ai-attachment-card-meta">
-                        <span className="ai-attachment-card-name">{truncateCardName(a.name)}</span>
-                        <span className="ai-attachment-card-size">
-                          {formatAttachmentSize(a.sizeBytes)}
+                    ) : (
+                      <span key={a.path} className="ai-attachment-card" title={a.path}>
+                        <span className="ai-attachment-card-icon">
+                          <AttachmentCardIcon ext={a.ext} />
                         </span>
+                        <span className="ai-attachment-card-meta">
+                          <span className="ai-attachment-card-name">
+                            {truncateCardName(a.name)}
+                          </span>
+                          <span className="ai-attachment-card-size">
+                            {formatAttachmentSize(a.sizeBytes)}
+                          </span>
+                        </span>
+                        <button
+                          className="ai-attachment-thumb-remove"
+                          onClick={() => removeAttachment(a.path)}
+                          title={t('aiRemoveAttachmentTitle')}
+                          aria-label={t('aiRemoveAttachmentTitle')}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 32 32" aria-hidden>
+                            <path
+                              d="M24 9.4L22.6 8L16 14.6L9.4 8L8 9.4l6.6 6.6L8 22.6L9.4 24l6.6-6.6l6.6 6.6l1.4-1.4l-6.6-6.6L24 9.4z"
+                              fill="currentColor"
+                              stroke="currentColor"
+                              strokeWidth="0.25"
+                            />
+                          </svg>
+                        </button>
                       </span>
-                      <button
-                        className="ai-attachment-thumb-remove"
-                        onClick={() => removeAttachment(a.path)}
-                        title={t('aiRemoveAttachmentTitle')}
-                        aria-label={t('aiRemoveAttachmentTitle')}
-                      >
-                        <svg width="16" height="16" viewBox="0 0 32 32" aria-hidden>
-                          <path
-                            d="M24 9.4L22.6 8L16 14.6L9.4 8L8 9.4l6.6 6.6L8 22.6L9.4 24l6.6-6.6l6.6 6.6l1.4-1.4l-6.6-6.6L24 9.4z"
-                            fill="currentColor"
-                            stroke="currentColor"
-                            strokeWidth="0.25"
-                          />
-                        </svg>
-                      </button>
-                    </span>
-                  ),
-                )}
-              </div>}
+                    ),
+                  )}
+                </div>
+              )}
             </>
           }
           value={input}

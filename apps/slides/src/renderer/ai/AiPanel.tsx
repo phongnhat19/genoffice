@@ -23,7 +23,7 @@ import { renderSlidesToPngBase64 } from '../export-render'
 import { isQcEnabled, mergeQcPages, qcSlidePage, QC_MAX_PAGES } from './slide-qc'
 import { useI18n, t as tGlobal, aiLangDirective, type TFunc } from '../i18n/locale'
 import { Markdown } from '@genoffice/ui'
-import { AiProviderControls } from '@genoffice/ui'
+import { AiOAuthAuthorizationPrompt, AiProviderControls, isAiOAuthAuthorized } from '@genoffice/ui'
 import { OrioMark } from '../components/icons'
 import sendEnterOn from '../assets/send-enter-on.png'
 import sendEnterOff from '../assets/send-enter-off.png'
@@ -1524,11 +1524,13 @@ export function AiPanel({
     )
   }
 
+  const oauthRequired = !isAiOAuthAuthorized(providerSettings)
+
   return (
     <aside
       ref={asideRef}
       style={{ width: '100%' }}
-      className={`ai-panel${dragOver ? ' ai-panel-dragover' : ''}${resizing ? ' ai-panel-resizing' : ''}`}
+      className={`ai-panel${dragOver ? ' ai-panel-dragover' : ''}${resizing ? ' ai-panel-resizing' : ''}${oauthRequired ? ' ai-oauth-required' : ''}`}
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes('Files')) {
           e.preventDefault()
@@ -1566,6 +1568,10 @@ export function AiPanel({
           )}
         </div>
       </div>
+
+      {oauthRequired && (
+        <AiOAuthAuthorizationPrompt settings={providerSettings} onSettings={setProviderSettings} />
+      )}
 
       <div ref={logRef} className="ai-chat" onScroll={onLogScroll}>
         {/* Past conversation (read-only transcript, not fed to the model), displayed continuously with the current turn */}
