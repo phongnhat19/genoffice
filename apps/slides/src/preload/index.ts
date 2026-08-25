@@ -368,5 +368,10 @@ const projectApi: ProjectApi = {
   deleteProject: (args) => ipcRenderer.invoke('project:delete', args),
   moveFile: (args) => ipcRenderer.invoke('project:moveFile', args),
   getTimeline: (args) => ipcRenderer.invoke('project:timeline', args),
+  getProjectRoot: (args) => ipcRenderer.invoke('project:getRoot', args),
+  setProjectRoot: (args) => ipcRenderer.invoke('project:setRoot', args),
+  listProjectRoot: (args) => ipcRenderer.invoke('project:listRoot', args),
+  readProjectFile: (args) => ipcRenderer.invoke('project:readFile', args),
+  readProjectImage: (args) => ipcRenderer.invoke('project:readImage', args),
 }
 contextBridge.exposeInMainWorld('projectApi', projectApi)

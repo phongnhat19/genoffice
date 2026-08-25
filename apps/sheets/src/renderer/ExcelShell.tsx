@@ -21,6 +21,7 @@ import type { ChangePlan } from '../domain/workbook.types'
 import type { AttachmentMeta } from '../shared/desktop-api'
 import type { AiSettings } from '@genoffice/ai-provider'
 import { AiChatPanel, type AiChatMessage } from './ai/AiChatPanel'
+import type { ProjectMention } from '@genoffice/ui'
 import {
   PivotDialog,
   type PivotEditSeed,
@@ -122,6 +123,9 @@ interface ExcelShellProps {
   readonly aiSettings?: AiSettings | null
   readonly onAiSettings?: (settings: AiSettings) => void
   readonly prompt: string
+  readonly projectId: string | null
+  readonly mentions: readonly ProjectMention[]
+  readonly onMentionsChange: (mentions: readonly ProjectMention[]) => void
   readonly preview: ChangePlan | null
   readonly selectionFormat: SelectionFormat | null
   /// True when the workbook has any cell content (the one-click AI action
@@ -222,6 +226,9 @@ export function ExcelShell({
   aiSettings,
   onAiSettings,
   prompt,
+  projectId,
+  mentions,
+  onMentionsChange,
   preview,
   selectionFormat,
   sheetHasContent,
@@ -436,6 +443,9 @@ export function ExcelShell({
           onAddPastedImage={onAddPastedImage}
           onRemoveAttachment={onRemoveAttachment}
           prompt={prompt}
+          projectId={projectId}
+          mentions={mentions}
+          onMentionsChange={onMentionsChange}
           preview={preview}
           aiBusy={aiBusy}
           onPromptChange={onPromptChange}

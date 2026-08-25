@@ -4,12 +4,13 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   statSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs'
 import { copyFile, mkdir, readFile, readdir, stat, unlink } from 'node:fs/promises'
-import { basename, join } from 'node:path'
+import { basename, isAbsolute, join, relative, resolve } from 'node:path'
 import {
   BrowserWindow,
   Menu,
@@ -2488,8 +2489,10 @@ export function registerAiIpc(): void {
 
   ipcMain.handle(
     'ai:generate-slides-style-skill',
-    async (_event, request: { requestId: string; topic: string; styleHint?: string; questionnaire?: string }) =>
-      orio.generateSlidesStyleSkill(request),
+    async (
+      _event,
+      request: { requestId: string; topic: string; styleHint?: string; questionnaire?: string },
+    ) => orio.generateSlidesStyleSkill(request),
   )
 
   // shared search tools (content + images): Serper with DuckDuckGo fallback (same source as slides/sheets)
@@ -2733,6 +2736,155 @@ export function registerProjectIpc(): void {
   ipcMain.handle('project:timeline', (_event, args: { projectId: string; limit?: number }) => {
     return getProjectStore().getProjectTimeline(args.projectId, args.limit ?? 20)
   })
+
+  const projectRoot = (projectId: string): { root?: string; error?: string } => {
+    const configured = getProjectStore().getProject(projectId)?.rootPath
+    if (!configured) return { error: 'No project folder is configured.' }
+    try {
+      const root = realpathSync(configured)
+      if (!statSync(root).isDirectory()) return { error: 'The project folder is unavailable.' }
+      return { root }
+    } catch {
+      return { error: 'The project folder is unavailable.' }
+    }
+  }
+  const safeProjectPath = (root: string, candidate: unknown): string | null => {
+    if (typeof candidate !== 'string' || !candidate || isAbsolute(candidate)) return null
+    const resolved = resolve(root, candidate)
+    const rel = relative(root, resolved)
+    if (!rel || rel.startsWith('..') || isAbsolute(rel)) return null
+    try {
+      const actual = realpathSync(resolved)
+      const actualRel = relative(root, actual)
+      return actualRel && !actualRel.startsWith('..') && !isAbsolute(actualRel) ? actual : null
+    } catch {
+      return null
+    }
+  }
+
+  ipcMain.handle('project:getRoot', (_event, args: { projectId: string }) => {
+    const status = projectRoot(args.projectId)
+    return {
+      rootPath: getProjectStore().getProject(args.projectId)?.rootPath,
+      available: !!status.root,
+    }
+  })
+  ipcMain.handle('project:setRoot', async (event, args: { projectId: string }) => {
+    const result = await openDialog(event, {
+      title: 'Choose project folder',
+      properties: ['openDirectory', 'createDirectory'],
+    })
+    if (!result.canceled && result.filePaths[0])
+      getProjectStore().setProjectRoot(args.projectId, result.filePaths[0])
+    const status = projectRoot(args.projectId)
+    return {
+      rootPath: getProjectStore().getProject(args.projectId)?.rootPath,
+      available: !!status.root,
+    }
+  })
+  ipcMain.handle('project:listRoot', (_event, args: { projectId: string; path?: string }) => {
+    const status = projectRoot(args.projectId)
+    if (!status.root) return []
+    const directory = args.path ? safeProjectPath(status.root, args.path) : status.root
+    if (!directory) return []
+    try {
+      if (!statSync(directory).isDirectory()) return []
+      return readdirSync(directory, { withFileTypes: true })
+        .filter(
+          (entry) =>
+            !entry.name.startsWith('.') && entry.name !== 'node_modules' && entry.name !== '.git',
+        )
+        .flatMap<{
+          name: string
+          path: string
+          kind: 'file' | 'directory'
+          ext?: string
+          sizeBytes?: number
+        }>((entry) => {
+          const absolute = join(directory, entry.name)
+          let actual: string
+          let fileStat: ReturnType<typeof statSync>
+          try {
+            actual = realpathSync(absolute)
+            const rel = relative(status.root!, actual)
+            if (!rel || rel.startsWith('..') || isAbsolute(rel)) return []
+            fileStat = statSync(actual)
+          } catch {
+            return []
+          }
+          const path = relative(status.root!, actual)
+          if (fileStat.isDirectory())
+            return [{ name: entry.name, path, kind: 'directory' as const }]
+          const ext = entry.name.split('.').pop()?.toLowerCase() ?? ''
+          if (!fileStat.isFile() || !ATTACHMENT_EXTS.has(ext)) return []
+          return [{ name: entry.name, path, kind: 'file' as const, ext, sizeBytes: fileStat.size }]
+        })
+        .sort((a, b) =>
+          a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === 'directory' ? -1 : 1,
+        )
+    } catch {
+      return []
+    }
+  })
+  ipcMain.handle(
+    'project:readFile',
+    async (
+      _event,
+      args: {
+        projectId: string
+        path: string
+        offset: number
+        maxChars: number
+        rootPath?: string
+      },
+    ) => {
+      const configuredRoot = getProjectStore().getProject(args.projectId)?.rootPath
+      if (args.rootPath && args.rootPath !== configuredRoot)
+        return { ok: false, error: 'The project folder changed; select this file again.' }
+      const status = projectRoot(args.projectId)
+      const filePath = status.root ? safeProjectPath(status.root, args.path) : null
+      if (!filePath) return { ok: false, error: status.error ?? 'Invalid project file path.' }
+      const ext = basename(filePath).split('.').pop()?.toLowerCase() ?? ''
+      if (!ATTACHMENT_EXTS.has(ext) || ATTACHMENT_IMAGE_EXTS.has(ext))
+        return { ok: false, error: 'This file cannot be read as text.' }
+      try {
+        const text = await extractAttachmentText(filePath)
+        const offset = Math.max(0, Math.floor(args.offset) || 0)
+        const maxChars = Math.min(Math.max(1, Math.floor(args.maxChars) || 1), 48_000)
+        return {
+          ok: true,
+          name: basename(filePath),
+          totalChars: text.length,
+          offset,
+          text: text.slice(offset, offset + maxChars),
+        }
+      } catch (error) {
+        return { ok: false, error: error instanceof Error ? error.message : String(error) }
+      }
+    },
+  )
+  ipcMain.handle(
+    'project:readImage',
+    (_event, args: { projectId: string; path: string; rootPath?: string }) => {
+      const configuredRoot = getProjectStore().getProject(args.projectId)?.rootPath
+      if (args.rootPath && args.rootPath !== configuredRoot)
+        return { ok: false, error: 'The project folder changed; select this file again.' }
+      const status = projectRoot(args.projectId)
+      const filePath = status.root ? safeProjectPath(status.root, args.path) : null
+      if (!filePath) return { ok: false, error: status.error ?? 'Invalid project file path.' }
+      const ext = basename(filePath).split('.').pop()?.toLowerCase() ?? ''
+      const mime = ATTACHMENT_IMAGE_MIME[ext]
+      if (!mime || !ATTACHMENT_IMAGE_EXTS.has(ext))
+        return { ok: false, error: 'This file is not an image.' }
+      try {
+        if (statSync(filePath).size > ATTACHMENT_IMAGE_MAX_BYTES)
+          return { ok: false, error: 'Image is too large.' }
+        return { ok: true, base64: readFileSync(filePath).toString('base64'), mime }
+      } catch {
+        return { ok: false, error: 'Image could not be read.' }
+      }
+    },
+  )
 }
 
 /** document/attachment/window IPC (everything except the AI proxy above) */

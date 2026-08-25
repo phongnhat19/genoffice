@@ -4962,6 +4962,83 @@ body.docs-crop-active
   background: var(--color-bg-page);
 }
 
+.ai-mention-picker {
+  max-height: 220px;
+  overflow: auto;
+  margin: 0 0 7px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 7px;
+  background: var(--color-bg-page);
+  box-shadow: 0 8px 22px rgb(0 0 0 / 12%);
+}
+.ai-mention-picker-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--color-border-default);
+  font-size: 11px;
+}
+.ai-mention-picker-head span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ai-mention-picker button {
+  display: block;
+  width: 100%;
+  border: 0;
+  padding: 6px 9px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.ai-mention-picker-head button {
+  width: auto;
+  padding: 2px 5px;
+}
+.ai-mention-picker button:hover,
+.ai-mention-picker button.active {
+  background: var(--color-bg-subtle);
+}
+.ai-mention-empty {
+  padding: 10px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+.ai-project-mentions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 6px 0;
+}
+.ai-project-mention {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 3px 7px;
+  border-radius: 12px;
+  background: rgba(15, 127, 255, 0.1);
+  color: var(--color-brand-secondary);
+  font-size: 11px;
+}
+.ai-project-mention span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ai-project-mention button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
 /* Hallmark · component: provider/model selector · genre: utilitarian
  * states: default · hover · focus · active · disabled · loading · error · success
  * contrast: pass (46–50)

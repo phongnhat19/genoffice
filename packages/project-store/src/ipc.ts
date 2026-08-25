@@ -2,7 +2,14 @@
  * IPC interface type definitions (shared by the renderer and main processes).
  * No Electron dependency; importable from the renderer.
  */
-import type { ChatAttachment, ChatMessage, ChatMeta, ProjectSummary, TimelineEntry, ToolActivity } from './types.js'
+import type {
+  ChatAttachment,
+  ChatMessage,
+  ChatMeta,
+  ProjectSummary,
+  TimelineEntry,
+  ToolActivity,
+} from './types.js'
 
 export type { ChatAttachment, ChatMessage, ChatMeta, ProjectSummary, TimelineEntry, ToolActivity }
 
@@ -71,6 +78,50 @@ export interface GetTimelineArgs {
   limit?: number
 }
 
+export interface ProjectRootEntry {
+  name: string
+  path: string
+  kind: 'file' | 'directory'
+  ext?: string
+  sizeBytes?: number
+}
+
+export interface ProjectRootResult {
+  rootPath?: string
+  available: boolean
+}
+
+export interface ListProjectRootArgs {
+  projectId: string
+  /** Root-relative directory; empty means the project root. */
+  path?: string
+}
+
+export interface ReadProjectFileArgs {
+  projectId: string
+  /** Root-relative path returned by listProjectRoot. */
+  path: string
+  offset: number
+  maxChars: number
+  /** Root value at mention selection; rejects a draft if the project root changed. */
+  rootPath?: string
+}
+
+export interface ProjectFileReadResult {
+  ok: boolean
+  error?: string
+  name?: string
+  totalChars?: number
+  text?: string
+  offset?: number
+}
+export interface ProjectFileImageResult {
+  ok: boolean
+  base64?: string
+  mime?: string
+  error?: string
+}
+
 /** Project storage API the main process exposes to the renderer */
 export interface ProjectApi {
   /**
@@ -97,4 +148,14 @@ export interface ProjectApi {
   moveFile(args: MoveFileArgs): Promise<void>
   /** Gets the project timeline */
   getTimeline(args: GetTimelineArgs): Promise<TimelineEntry[]>
+  /** Root configuration and safe root-relative file browser for AI @mentions. */
+  getProjectRoot(args: { projectId: string }): Promise<ProjectRootResult>
+  setProjectRoot(args: { projectId: string }): Promise<ProjectRootResult>
+  listProjectRoot(args: ListProjectRootArgs): Promise<ProjectRootEntry[]>
+  readProjectFile(args: ReadProjectFileArgs): Promise<ProjectFileReadResult>
+  readProjectImage(args: {
+    projectId: string
+    path: string
+    rootPath?: string
+  }): Promise<ProjectFileImageResult>
 }

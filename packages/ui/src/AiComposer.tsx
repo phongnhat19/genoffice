@@ -31,6 +31,8 @@ export function AiComposer({
   onSend,
   onStop,
   onPasteFiles,
+  overlay,
+  onTextareaKeyDown,
 }: {
   readonly value: string
   readonly busy: boolean
@@ -59,6 +61,11 @@ export function AiComposer({
   readonly onStop: () => void
   /** clipboard files pasted into the textarea (screenshots, copied files); text paste stays native */
   readonly onPasteFiles?: ((files: File[]) => void) | undefined
+  /** Optional contextual UI shown directly above the textarea (for example @file picker). */
+  readonly overlay?: React.ReactNode
+  /** Runs before the built-in send/stop shortcuts; preventDefault to take ownership. */
+  readonly onTextareaKeyDown?:
+    ((event: React.KeyboardEvent<HTMLTextAreaElement>) => void) | undefined
 }): React.JSX.Element {
   const innerRef = useRef<HTMLTextAreaElement | null>(null)
   const ref = textareaRef ?? innerRef
@@ -80,6 +87,7 @@ export function AiComposer({
   return (
     <div className="ai-input-box">
       {header}
+      {overlay}
       <textarea
         ref={ref}
         value={value}
@@ -89,6 +97,8 @@ export function AiComposer({
         rows={1}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
+          onTextareaKeyDown?.(e)
+          if (e.defaultPrevented) return
           if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
             e.preventDefault()
             if (canSend) onSend()

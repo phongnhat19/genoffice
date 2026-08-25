@@ -13,7 +13,7 @@ import { DOCS_AGENT_MAX_TURNS, DOCS_CONTINUE_INSTRUCTION } from './continuation'
 import { createFilesSkill } from './files-skill'
 import { createElectronTransport } from './transport'
 import { useI18n, t as tModule, aiLangDirective, type StringKey } from '../i18n/locale'
-import { Markdown } from '@genoffice/ui'
+import { Markdown, ProjectMentionPicker, type ProjectMention } from '@genoffice/ui'
 import {
   AiComposer,
   AiOAuthAuthorizationPrompt,
@@ -241,6 +241,9 @@ export function AiPanel({
   const { t } = useI18n()
   const [providerSettings, setProviderSettings] = useState(settings)
   const [input, setInput] = useState('')
+  const [mentions, setMentions] = useState<ProjectMention[]>([])
+  const [mentionOpen, setMentionOpen] = useState(false)
+  const [projectId, setProjectId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   /** Wall-clock start of the current run, drives the elapsed badge */
   const runStartedAtRef = useRef(0)
@@ -332,6 +335,8 @@ export function AiPanel({
   numIdFallbackRef.current = numIdFallback
   const attachmentsRef = useRef(attachments)
   attachmentsRef.current = attachments
+  const mentionsRef = useRef(mentions)
+  mentionsRef.current = mentions
   const trackChangesRef = useRef(trackChanges)
   trackChangesRef.current = trackChanges
 
@@ -372,6 +377,7 @@ export function AiPanel({
       .resolveChat({ filePath: filePath ?? null, tempChatId })
       .then((ids) => {
         chatRefIds.current = ids
+        setProjectId(ids.projectId)
         return api.loadChat({ projectId: ids.projectId, chatId: ids.chatId, limit: 200 })
       })
       .then((msgs) => {
@@ -405,7 +411,10 @@ export function AiPanel({
     void api
       .rebindChat({ projectId: ids.projectId, tempChatId: ids.chatId, newFilePath: filePath })
       .then((r) => {
-        if (r?.chatId) chatRefIds.current = r
+        if (r?.chatId) {
+          chatRefIds.current = r
+          setProjectId(r.projectId)
+        }
       })
       .catch(() => {
         /* silent */
@@ -423,6 +432,7 @@ export function AiPanel({
       output?: string
     }>,
     attachments?: AttachmentMeta[],
+    projectMentions?: ProjectMention[],
   ) => {
     const ids = chatRefIds.current
     const api = (window as Window & { projectApi?: typeof window.projectApi }).projectApi
@@ -434,14 +444,24 @@ export function AiPanel({
         role,
         text,
         ...(tools && tools.length > 0 ? { tools } : {}),
-        ...(attachments && attachments.length > 0
+        ...(attachments?.length || projectMentions?.length
           ? {
-              attachments: attachments.map((a) => ({
-                name: a.name,
-                path: a.path,
-                ext: a.ext,
-                sizeBytes: a.sizeBytes,
-              })),
+              attachments: [
+                ...(attachments ?? []).map((a) => ({
+                  name: a.name,
+                  path: a.path,
+                  ext: a.ext,
+                  sizeBytes: a.sizeBytes,
+                  source: 'attachment' as const,
+                })),
+                ...(projectMentions ?? []).map((m) => ({
+                  name: m.name,
+                  ext: m.ext,
+                  sizeBytes: m.sizeBytes,
+                  relativePath: m.path,
+                  source: 'project-mention' as const,
+                })),
+              ],
             }
           : {}),
       })
@@ -480,7 +500,10 @@ export function AiPanel({
           numIds,
           () => (trackChangesRef.current ? { author: AI_REVISION_AUTHOR } : undefined),
         ),
-        createFilesSkill(() => attachmentsRef.current),
+        createFilesSkill(
+          () => attachmentsRef.current,
+          () => mentionsRef.current,
+        ),
       ]),
       captureSnapshot: () => editorRef.current.getJSON() as PmNode,
       events: {
@@ -638,6 +661,7 @@ export function AiPanel({
   const MAX_IMAGES_PER_MESSAGE = 20
   const collectImageAttachments = async (): Promise<AgentImage[]> => {
     const imageAtts = attachmentsRef.current.filter((a) => ATTACHMENT_IMAGE_EXTS.has(a.ext))
+    const imageMentions = mentionsRef.current.filter((a) => ATTACHMENT_IMAGE_EXTS.has(a.ext))
     const images: AgentImage[] = []
     const failures: string[] = []
     for (const att of imageAtts.slice(0, MAX_IMAGES_PER_MESSAGE)) {
@@ -648,7 +672,20 @@ export function AiPanel({
         failures.push(result.error ?? t('aiImageReadFail', { name: att.name }))
       }
     }
-    if (imageAtts.length > MAX_IMAGES_PER_MESSAGE) {
+    for (const mention of imageMentions.slice(
+      0,
+      Math.max(0, MAX_IMAGES_PER_MESSAGE - images.length),
+    )) {
+      const result = await window.projectApi.readProjectImage({
+        projectId: mention.projectId,
+        path: mention.path,
+        ...(mention.rootPath ? { rootPath: mention.rootPath } : {}),
+      })
+      if (result.ok && result.base64 && result.mime)
+        images.push({ base64: result.base64, mime: result.mime })
+      else failures.push(result.error ?? t('aiImageReadFail', { name: mention.name }))
+    }
+    if (imageAtts.length + imageMentions.length > MAX_IMAGES_PER_MESSAGE) {
       failures.push(t('aiTooManyImages', { max: MAX_IMAGES_PER_MESSAGE }))
     }
     if (failures.length > 0) {
@@ -673,7 +710,7 @@ export function AiPanel({
     ])
     runStartedAtRef.current = Date.now()
     setBusy(true)
-    persistMessage('user', instruction, undefined, attachmentsRef.current)
+    persistMessage('user', instruction, undefined, attachmentsRef.current, mentionsRef.current)
     // a rejected image read must not strand the run (busy would stay true forever): degrade to a no-image send
     void collectImageAttachments()
       .catch((): AgentImage[] => {
@@ -682,6 +719,17 @@ export function AiPanel({
         return []
       })
       .then((images) => loop.run(instruction, images))
+  }
+
+  const chooseMention = (mention: ProjectMention) => {
+    setMentions((prev) =>
+      prev.some((item) => item.projectId === mention.projectId && item.path === mention.path)
+        ? prev
+        : [...prev, mention],
+    )
+    setInput((value) => value.replace(/@[^\s@]*$/, ''))
+    setMentionOpen(false)
+    inputRef.current?.focus()
   }
 
   const cancel = () => loopRef.current?.cancel()
@@ -1040,6 +1088,27 @@ export function AiPanel({
           header={
             <>
               <AiProviderControls settings={providerSettings} onSettings={setProviderSettings} />
+              {mentions.length > 0 && (
+                <div className="ai-project-mentions">
+                  {mentions.map((mention) => (
+                    <span
+                      className="ai-project-mention"
+                      key={`${mention.projectId}:${mention.path}`}
+                      title={mention.path}
+                    >
+                      <span>@{mention.path}</span>
+                      <button
+                        aria-label={`Remove ${mention.name}`}
+                        onClick={() =>
+                          setMentions((prev) => prev.filter((item) => item !== mention))
+                        }
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
               {attachments.length > 0 && (
                 <div className="ai-attachments" onScroll={onAttachmentsScroll}>
                   {attachments.map((a) =>
@@ -1116,7 +1185,26 @@ export function AiPanel({
           sendIconDisabled={<img src={sendEnterOff} alt="" aria-hidden />}
           stopIcon={<img src={sendStop} alt="" aria-hidden />}
           textareaRef={inputRef}
-          onChange={setInput}
+          onChange={(value) => {
+            setInput(value)
+            if (/@[^\s@]*$/.test(value)) setMentionOpen(true)
+          }}
+          onTextareaKeyDown={(event) => {
+            if (event.key === '@') setMentionOpen(true)
+            if (event.key === 'Escape' && mentionOpen) {
+              event.preventDefault()
+              setMentionOpen(false)
+            }
+          }}
+          overlay={
+            <ProjectMentionPicker
+              projectId={projectId}
+              open={mentionOpen}
+              query={input.match(/@([^\s@]*)$/)?.[1] ?? ''}
+              onSelect={chooseMention}
+              onClose={() => setMentionOpen(false)}
+            />
+          }
           onSend={run}
           onStop={cancel}
           onPasteFiles={(files) => void onPasteFiles(files)}

@@ -485,6 +485,7 @@ export class ProjectStore {
     this.ensureDefaultProject()
     const index = this.readIndex()
     return index.projects.map((info) => {
+      const project = this.readProject(info.id)
       const fileCount = this.listProjectFiles(info.id).length
       // Take the max of project.json updatedAt and all chat mtimes
       let lastActiveAt = info.updatedAt
@@ -497,6 +498,7 @@ export class ProjectStore {
         fileCount,
         lastActiveAt,
         isDefault: info.id === 'default',
+        ...(project?.rootPath ? { rootPath: project.rootPath } : {}),
       }
     })
   }
@@ -540,6 +542,21 @@ export class ProjectStore {
     index.projects.push({ id, name: trimmed, createdAt: now, updatedAt: now })
     this.writeIndex(index)
     return data
+  }
+
+  /** Sets (or clears) the filesystem root used for AI @file mentions. */
+  setProjectRoot(projectId: string, rootPath: string | null): void {
+    this.ensureDefaultProject()
+    const project = this.readProject(projectId)
+    if (!project) throw new Error(`Project does not exist: ${projectId}`)
+    if (rootPath) project.rootPath = rootPath
+    else delete project.rootPath
+    project.updatedAt = nowIso()
+    this.writeProject(project)
+    const index = this.readIndex()
+    const info = index.projects.find((item) => item.id === projectId)
+    if (info) info.updatedAt = project.updatedAt
+    this.writeIndex(index)
   }
 
   /**

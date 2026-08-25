@@ -789,6 +789,17 @@ describe('listProjectsSummary', () => {
     const summaries = store.listProjectsSummary()
     expect(summaries.find((s) => s.id === proj.id)).toBeTruthy()
   })
+
+  it('persists the optional AI project root and exposes it in summaries', () => {
+    const proj = store.createProject('Rooted project')
+    store.setProjectRoot(proj.id, '/tmp/project-root')
+    expect(store.getProject(proj.id)?.rootPath).toBe('/tmp/project-root')
+    expect(store.listProjectsSummary().find((item) => item.id === proj.id)?.rootPath).toBe(
+      '/tmp/project-root',
+    )
+    store.setProjectRoot(proj.id, null)
+    expect(store.getProject(proj.id)?.rootPath).toBeUndefined()
+  })
 })
 
 // ────────────────────────────────────────────────────────────

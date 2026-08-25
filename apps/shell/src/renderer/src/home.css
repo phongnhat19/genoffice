@@ -66,6 +66,27 @@ body.vib .home {
   height: calc(100vh - 40px);
 }
 
+.project-folder {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-subtle);
+}
+.project-folder-path {
+  max-width: 600px;
+  margin-top: 4px;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .sidebar {
   display: flex;
   flex-direction: column;

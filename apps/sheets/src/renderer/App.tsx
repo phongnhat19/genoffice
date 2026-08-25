@@ -120,6 +120,7 @@ import type { ApplyOutcome, ChangePlan } from '../domain/workbook.types'
 import { createElectronTransport } from './ai/transport'
 import type { ActiveSheetInfo, SheetsSkillDeps } from './ai/tools'
 import type { AiChatMessage } from './ai/AiChatPanel'
+import type { ProjectMention } from '@genoffice/ui'
 import { createWorkbookSkill } from './ai/workbook-skill'
 import { createFilesSkill } from './ai/files-skill'
 import { createSearchSkill } from './ai/search-skill'
@@ -319,6 +320,8 @@ export function App(): React.JSX.Element {
   const demoVisualDisposablesRef = useRef<{ dispose(): void }[]>([])
   const demoVisualInstallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [prompt, setPrompt] = useState('')
+  const [mentions, setMentions] = useState<readonly ProjectMention[]>([])
+  const [projectId, setProjectId] = useState<string | null>(null)
   const [preview, setPreview] = useState<ChangePlan | null>(null)
   const [_revision, setRevision] = useState(0)
   const [workbookFile, setWorkbookFile] = useState<WorkbookFile | null>(null)
@@ -559,6 +562,8 @@ export function App(): React.JSX.Element {
   const [attachNotice, setAttachNotice] = useState<string | null>(null)
   const attachmentsRef = useRef(attachments)
   attachmentsRef.current = attachments
+  const mentionsRef = useRef(mentions)
+  mentionsRef.current = mentions
   /** Synchronous re-entrancy guard between runAgent trigger and loop.run
    * (loop.busy is still false while attachment images load asynchronously) */
   const runStartingRef = useRef(false)
@@ -672,6 +677,7 @@ export function App(): React.JSX.Element {
       .resolveChat(resolveArgs)
       .then(async (ids) => {
         chatRefIdsRef.current = ids
+        setProjectId(ids.projectId)
         const msgs = await api.loadChat({
           projectId: ids.projectId,
           chatId: ids.chatId,
@@ -710,6 +716,7 @@ export function App(): React.JSX.Element {
       input?: string
       output?: string
     }>,
+    projectMentions?: readonly ProjectMention[],
   ) => {
     const ids = chatRefIdsRef.current
     const api = (window as Window & { projectApi?: typeof window.projectApi }).projectApi
@@ -722,6 +729,17 @@ export function App(): React.JSX.Element {
         text,
         ...(tools && tools.length > 0
           ? { tools: tools.map((t) => ({ ...t, name: t.name ?? '' })) }
+          : {}),
+        ...(projectMentions && projectMentions.length > 0
+          ? {
+              attachments: projectMentions.map((m) => ({
+                name: m.name,
+                ext: m.ext,
+                sizeBytes: m.sizeBytes,
+                relativePath: m.path,
+                source: 'project-mention' as const,
+              })),
+            }
           : {}),
       })
       .catch(() => {
@@ -767,7 +785,10 @@ export function App(): React.JSX.Element {
       compaction: false,
       skill: composeSkills('sheets+files', '', [
         createWorkbookSkill(sheetsSkillDeps()),
-        createFilesSkill(() => attachmentsRef.current),
+        createFilesSkill(
+          () => attachmentsRef.current,
+          () => mentionsRef.current,
+        ),
         createSearchSkill(),
       ]),
       // guide loading adds a tool round; the default 8 cuts off multi-step work
@@ -919,6 +940,7 @@ export function App(): React.JSX.Element {
   const MAX_IMAGES_PER_MESSAGE = 20
   async function collectImageAttachments(): Promise<AgentImage[]> {
     const imageAtts = attachmentsRef.current.filter((a) => ATTACHMENT_IMAGE_EXTS.has(a.ext))
+    const imageMentions = mentionsRef.current.filter((a) => ATTACHMENT_IMAGE_EXTS.has(a.ext))
     const images: AgentImage[] = []
     const failures: string[] = []
     for (const att of imageAtts.slice(0, MAX_IMAGES_PER_MESSAGE)) {
@@ -929,7 +951,20 @@ export function App(): React.JSX.Element {
         failures.push(result.error ?? t('appAttachmentReadFailed', { name: att.name }))
       }
     }
-    if (imageAtts.length > MAX_IMAGES_PER_MESSAGE) {
+    for (const mention of imageMentions.slice(
+      0,
+      Math.max(0, MAX_IMAGES_PER_MESSAGE - images.length),
+    )) {
+      const result = await window.projectApi.readProjectImage({
+        projectId: mention.projectId,
+        path: mention.path,
+        ...(mention.rootPath ? { rootPath: mention.rootPath } : {}),
+      })
+      if (result.ok && result.base64 && result.mime)
+        images.push({ base64: result.base64, mime: result.mime })
+      else failures.push(result.error ?? `${mention.name}: failed to read`)
+    }
+    if (imageAtts.length + imageMentions.length > MAX_IMAGES_PER_MESSAGE) {
       failures.push(t('appTooManyImages', { max: MAX_IMAGES_PER_MESSAGE }))
     }
     if (failures.length > 0) {
@@ -1960,7 +1995,7 @@ export function App(): React.JSX.Element {
     if (!instruction || aiBusy) return
     runToolsRef.current = []
     appendChat({ role: 'user', text: instruction, tools: [] })
-    persistChatMessage('user', instruction)
+    persistChatMessage('user', instruction, undefined, mentionsRef.current)
     if (!overrideInstruction) setPrompt('')
     // real LLM configured → let the agent read context and propose operations;
     // otherwise fall back to the local, deterministic regex planner
@@ -2970,6 +3005,9 @@ export function App(): React.JSX.Element {
         aiSettings={aiSettings}
         onAiSettings={setAiSettingsState}
         prompt={prompt}
+        projectId={projectId}
+        mentions={mentions}
+        onMentionsChange={setMentions}
         preview={preview}
         sheetHasContent={sheetHasContent}
         pageLayout={activePageLayout}

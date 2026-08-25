@@ -25,6 +25,9 @@ export interface ChatAttachment {
   /** Lowercase extension, no dot */
   ext?: string
   sizeBytes?: number
+  /** Root-relative path when this was selected through an AI @file mention. */
+  relativePath?: string
+  source?: 'attachment' | 'project-mention'
 }
 
 // ────────────────────────────────────────────────────────────
@@ -63,6 +66,8 @@ export interface ProjectInfo {
 
 export interface ProjectData extends ProjectInfo {
   files: string[]
+  /** Optional filesystem root used by AI @file mentions. */
+  rootPath?: string
 }
 
 export interface ProjectIndex {
@@ -100,6 +105,8 @@ export interface ProjectSummary extends ProjectInfo {
   lastActiveAt: string
   /** Whether this is the default project (cannot be deleted/renamed) */
   isDefault: boolean
+  /** Optional filesystem root used by AI @file mentions. */
+  rootPath?: string
 }
 
 /**

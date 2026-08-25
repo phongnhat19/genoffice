@@ -2,6 +2,7 @@ import type { AgentSkill } from '@genoffice/agent-core'
 import type { AttachmentMeta } from '../../shared/ipc'
 import { ATTACHMENT_IMAGE_EXTS } from '../../shared/ipc'
 import { t } from '../i18n/locale'
+import type { ProjectMention } from '@genoffice/ui'
 
 /**
  * Chat-attachment capability as an AgentSkill (isomorphic to apps/docs files-skill):
@@ -22,6 +23,7 @@ export function createFilesSkill(
   getAttachments: () => AttachmentMeta[],
   /** Called on each successful text read — lets the deck generator gate on unread attachments */
   onTextRead?: (path: string) => void,
+  getMentions: () => readonly ProjectMention[] = () => [],
 ): AgentSkill {
   return {
     id: 'files',
@@ -43,14 +45,61 @@ export function createFilesSkill(
           required: ['index'],
         },
       },
+      {
+        name: 'read_file',
+        description:
+          'Read a file explicitly mentioned with @ in this user request using its root-relative path. Long files are paged.',
+        inputSchema: {
+          type: 'object',
+          properties: { path: { type: 'string' }, offset: { type: 'integer' } },
+          required: ['path'],
+        },
+      },
     ],
     buildContext: () => {
       const list = getAttachments()
-      if (list.length === 0) return ''
-      const lines = list.map((a, i) => `${i} | ${a.name} | .${a.ext} | ${formatSize(a.sizeBytes)}`)
-      return `Attachment list (index | file name | type | size):\n${lines.join('\n')}`
+      const mentioned = getMentions()
+      return [
+        list.length
+          ? `Attachment list (index | file name | type | size):\n${list.map((a, i) => `${i} | ${a.name} | .${a.ext} | ${formatSize(a.sizeBytes)}`).join('\n')}`
+          : '',
+        mentioned.length
+          ? `Mentioned project files (read with read_file path):\n${mentioned.map((m) => `${m.path} | .${m.ext} | ${formatSize(m.sizeBytes)}`).join('\n')}`
+          : '',
+      ]
+        .filter(Boolean)
+        .join('\n\n')
     },
     executeTool: async (call) => {
+      if (call.name === 'read_file') {
+        const path = String(call.input.path ?? '')
+        const mention = getMentions().find((item) => item.path === path)
+        if (!mention)
+          return {
+            output: 'This file was not explicitly mentioned in the current request.',
+            isError: true,
+            summary: 'read file',
+          }
+        const result = await window.projectApi.readProjectFile({
+          projectId: mention.projectId,
+          path,
+          offset: Math.max(0, Number(call.input.offset) || 0),
+          maxChars: READ_CHUNK_CHARS,
+          ...(mention.rootPath ? { rootPath: mention.rootPath } : {}),
+        })
+        if (!result.ok)
+          return {
+            output: result.error ?? 'Read failed',
+            isError: true,
+            summary: `read ${mention.name}`,
+          }
+        const end = (result.offset ?? 0) + (result.text?.length ?? 0)
+        return {
+          output: `File ${path}, total characters ${result.totalChars}, chunk ${result.offset}-${end}${end < (result.totalChars ?? 0) ? ` (continue with offset=${end})` : ' (end of file)'}\n---\n${result.text ?? ''}`,
+          mutated: false,
+          summary: `read ${mention.name}`,
+        }
+      }
       if (call.name !== 'read_attachment') {
         return { output: `Unknown tool: ${call.name}`, isError: true, summary: call.name }
       }

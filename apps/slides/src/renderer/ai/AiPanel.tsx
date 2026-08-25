@@ -22,7 +22,7 @@ import { createElectronTransport } from './transport'
 import { renderSlidesToPngBase64 } from '../export-render'
 import { isQcEnabled, mergeQcPages, qcSlidePage, QC_MAX_PAGES } from './slide-qc'
 import { useI18n, t as tGlobal, aiLangDirective, type TFunc } from '../i18n/locale'
-import { Markdown } from '@genoffice/ui'
+import { Markdown, ProjectMentionPicker, type ProjectMention } from '@genoffice/ui'
 import { AiOAuthAuthorizationPrompt, AiProviderControls, isAiOAuthAuthorized } from '@genoffice/ui'
 import { OrioMark } from '../components/icons'
 import sendEnterOn from '../assets/send-enter-on.png'
@@ -375,6 +375,9 @@ export function AiPanel({
     attachScrollFadeRef.current = window.setTimeout(() => el.classList.remove('is-scrolling'), 800)
   }
   const [dragOver, setDragOver] = useState(false)
+  const [mentions, setMentions] = useState<ProjectMention[]>([])
+  const [mentionOpen, setMentionOpen] = useState(false)
+  const [projectId, setProjectId] = useState<string | null>(null)
   const [panelWidth, setPanelWidth] = useState(loadPanelWidth)
   const asideRef = useRef<HTMLElement>(null)
 
@@ -427,6 +430,8 @@ export function AiPanel({
   imagesRef.current = images
   const attachmentsRef = useRef(attachments)
   attachmentsRef.current = attachments
+  const mentionsRef = useRef(mentions)
+  mentionsRef.current = mentions
   // Paths of text attachments already read via read_attachment — generate_deck refuses to run
   // while any current text attachment is still unread
   const readAttachmentPathsRef = useRef<Set<string>>(new Set())
@@ -453,6 +458,7 @@ export function AiPanel({
       .resolveChat({ filePath: currentFilePath ?? null, tempChatId })
       .then((ids) => {
         chatRefIds.current = ids
+        setProjectId(ids.projectId)
         return api.loadChat({ projectId: ids.projectId, chatId: ids.chatId, limit: 200 })
       })
       .then((msgs) => {
@@ -490,7 +496,10 @@ export function AiPanel({
         newFilePath: currentFilePath,
       })
       .then((r) => {
-        if (r?.chatId) chatRefIds.current = r
+        if (r?.chatId) {
+          chatRefIds.current = r
+          setProjectId(r.projectId)
+        }
       })
       .catch(() => {
         /* Silent */
@@ -509,6 +518,7 @@ export function AiPanel({
       output?: string
     }>,
     attachments?: AttachmentMeta[],
+    projectMentions?: ProjectMention[],
   ) => {
     const ids = chatRefIds.current
     const api = (window as Window & { projectApi?: typeof window.projectApi }).projectApi
@@ -520,14 +530,24 @@ export function AiPanel({
         role,
         text,
         ...(tools && tools.length > 0 ? { tools } : {}),
-        ...(attachments && attachments.length > 0
+        ...(attachments?.length || projectMentions?.length
           ? {
-              attachments: attachments.map((a) => ({
-                name: a.name,
-                path: a.path,
-                ext: a.ext,
-                sizeBytes: a.sizeBytes,
-              })),
+              attachments: [
+                ...(attachments ?? []).map((a) => ({
+                  name: a.name,
+                  path: a.path,
+                  ext: a.ext,
+                  sizeBytes: a.sizeBytes,
+                  source: 'attachment' as const,
+                })),
+                ...(projectMentions ?? []).map((m) => ({
+                  name: m.name,
+                  ext: m.ext,
+                  sizeBytes: m.sizeBytes,
+                  relativePath: m.path,
+                  source: 'project-mention' as const,
+                })),
+              ],
             }
           : {}),
       })
@@ -1062,6 +1082,7 @@ export function AiPanel({
         createFilesSkill(
           () => attachmentsRef.current,
           (path) => readAttachmentPathsRef.current.add(path),
+          () => mentionsRef.current,
         ),
       ]),
       // Page-by-page deck generation needs more tool rounds
@@ -1232,6 +1253,7 @@ export function AiPanel({
   const MAX_IMAGES_PER_MESSAGE = 20
   const collectImageAttachments = async (): Promise<AgentImage[]> => {
     const imageAtts = attachmentsRef.current.filter((a) => ATTACHMENT_IMAGE_EXTS.has(a.ext))
+    const imageMentions = mentionsRef.current.filter((a) => ATTACHMENT_IMAGE_EXTS.has(a.ext))
     const images: AgentImage[] = []
     const failures: string[] = []
     for (const att of imageAtts.slice(0, MAX_IMAGES_PER_MESSAGE)) {
@@ -1242,7 +1264,20 @@ export function AiPanel({
         failures.push(result.error ?? t('aiReadFailed', { name: att.name }))
       }
     }
-    if (imageAtts.length > MAX_IMAGES_PER_MESSAGE) {
+    for (const mention of imageMentions.slice(
+      0,
+      Math.max(0, MAX_IMAGES_PER_MESSAGE - images.length),
+    )) {
+      const result = await window.projectApi.readProjectImage({
+        projectId: mention.projectId,
+        path: mention.path,
+        ...(mention.rootPath ? { rootPath: mention.rootPath } : {}),
+      })
+      if (result.ok && result.base64 && result.mime)
+        images.push({ base64: result.base64, mime: result.mime })
+      else failures.push(result.error ?? `${mention.name}: failed to read`)
+    }
+    if (imageAtts.length + imageMentions.length > MAX_IMAGES_PER_MESSAGE) {
       failures.push(t('aiTooManyImages', { max: MAX_IMAGES_PER_MESSAGE }))
     }
     if (failures.length > 0) {
@@ -1291,7 +1326,7 @@ export function AiPanel({
     runStartedAtRef.current = Date.now()
     setBusy(true)
     // Persist the user message (store display text + attachment metadata; loop.restore rebuilds model context on file reopen)
-    persistMessage('user', shown, undefined, attachmentsRef.current)
+    persistMessage('user', shown, undefined, attachmentsRef.current, mentionsRef.current)
     void collectImageAttachments()
       .then(async (images) => {
         // AI Beautify sends the current slide's rendering along, so the model sees what it edits;
@@ -1410,6 +1445,17 @@ export function AiPanel({
     dismissClarify()
     qcAbortRef.current?.abort()
     loopRef.current?.cancel()
+  }
+
+  const chooseMention = (mention: ProjectMention) => {
+    setMentions((prev) =>
+      prev.some((item) => item.projectId === mention.projectId && item.path === mention.path)
+        ? prev
+        : [...prev, mention],
+    )
+    setInput((value) => value.replace(/@[^\s@]*$/, ''))
+    setMentionOpen(false)
+    inputRef.current?.focus()
   }
 
   // Abort a QC pass still running when the panel unmounts (new file / panel remount by key)
@@ -1831,6 +1877,28 @@ export function AiPanel({
                 )}
               </div>
             )}
+            {mentions.length > 0 && (
+              <div className="ai-project-mentions">
+                {mentions.map((mention) => (
+                  <span className="ai-project-mention" key={`${mention.projectId}:${mention.path}`}>
+                    <span>@{mention.path}</span>
+                    <button
+                      aria-label={`Remove ${mention.name}`}
+                      onClick={() => setMentions((prev) => prev.filter((item) => item !== mention))}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <ProjectMentionPicker
+              projectId={projectId}
+              open={mentionOpen}
+              query={input.match(/@([^\s@]*)$/)?.[1] ?? ''}
+              onSelect={chooseMention}
+              onClose={() => setMentionOpen(false)}
+            />
             <textarea
               ref={inputRef}
               value={input}
@@ -1840,8 +1908,15 @@ export function AiPanel({
               onChange={(e) => {
                 inputEditedSinceRunRef.current = true
                 setInput(e.target.value)
+                if (/@[^\s@]*$/.test(e.target.value)) setMentionOpen(true)
               }}
               onKeyDown={(e) => {
+                if (e.key === '@') setMentionOpen(true)
+                if (e.key === 'Escape' && mentionOpen) {
+                  e.preventDefault()
+                  setMentionOpen(false)
+                  return
+                }
                 if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                   e.preventDefault()
                   run()

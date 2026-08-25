@@ -1366,6 +1366,20 @@ export function Home() {
 
     return (
       <main className="content">
+        <section className="project-folder" aria-label="Project folder">
+          <div>
+            <span className="section-label">Project folder</span>
+            <div className="project-folder-path" title={proj.rootPath}>
+              {proj.rootPath ?? 'No folder configured for AI file mentions'}
+            </div>
+          </div>
+          <button
+            className="selection-action"
+            onClick={() => void window.aiOfficeProject?.setProjectRoot(proj.id).then(refresh)}
+          >
+            {proj.rootPath ? 'Change folder' : 'Set folder'}
+          </button>
+        </section>
         <section className="quick-start" aria-label={t('secQuickStart')}>
           <div className="section-head">
             <span className="section-label">{t('secQuickStart')}</span>

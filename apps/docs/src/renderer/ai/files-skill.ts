@@ -2,6 +2,7 @@ import type { AgentSkill } from '@genoffice/agent-core'
 import type { AttachmentMeta } from '../../shared/ipc'
 import { ATTACHMENT_IMAGE_EXTS } from '../../shared/ipc'
 import { t } from '../i18n/locale'
+import type { ProjectMention } from '@genoffice/ui'
 
 /**
  * Chat-attachment capability as an AgentSkill: the per-turn context lists the
@@ -17,7 +18,10 @@ function formatSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)}MB`
 }
 
-export function createFilesSkill(getAttachments: () => AttachmentMeta[]): AgentSkill {
+export function createFilesSkill(
+  getAttachments: () => AttachmentMeta[],
+  getMentions: () => ProjectMention[] = () => [],
+): AgentSkill {
   return {
     id: 'files',
     systemPrompt: '',
@@ -38,14 +42,60 @@ export function createFilesSkill(getAttachments: () => AttachmentMeta[]): AgentS
           required: ['index'],
         },
       },
+      {
+        name: 'read_file',
+        description:
+          'Read a file explicitly mentioned with @ in this user request. Use its root-relative path from the mentioned-file list. Long files are paged; continue with offset when needed.',
+        inputSchema: {
+          type: 'object',
+          properties: { path: { type: 'string' }, offset: { type: 'integer' } },
+          required: ['path'],
+        },
+      },
     ],
     buildContext: () => {
       const list = getAttachments()
-      if (list.length === 0) return ''
-      const lines = list.map((a, i) => `${i} | ${a.name} | .${a.ext} | ${formatSize(a.sizeBytes)}`)
-      return `Attachment list (index | file name | type | size):\n${lines.join('\n')}`
+      const mentioned = getMentions()
+      const attachmentContext =
+        list.length === 0
+          ? ''
+          : `Attachment list (index | file name | type | size):\n${list.map((a, i) => `${i} | ${a.name} | .${a.ext} | ${formatSize(a.sizeBytes)}`).join('\n')}`
+      const mentionContext =
+        mentioned.length === 0
+          ? ''
+          : `Mentioned project files (read with read_file path):\n${mentioned.map((m) => `${m.path} | .${m.ext} | ${formatSize(m.sizeBytes)}`).join('\n')}`
+      return [attachmentContext, mentionContext].filter(Boolean).join('\n\n')
     },
     executeTool: async (call) => {
+      if (call.name === 'read_file') {
+        const path = String(call.input.path ?? '')
+        const mention = getMentions().find((item) => item.path === path)
+        if (!mention)
+          return {
+            output: 'This file was not explicitly mentioned in the current request.',
+            isError: true,
+            summary: 'read file',
+          }
+        const result = await window.projectApi.readProjectFile({
+          projectId: mention.projectId,
+          path,
+          offset: Math.max(0, Number(call.input.offset) || 0),
+          maxChars: READ_CHUNK_CHARS,
+          ...(mention.rootPath ? { rootPath: mention.rootPath } : {}),
+        })
+        if (!result.ok)
+          return {
+            output: result.error ?? 'read failed',
+            isError: true,
+            summary: `read ${mention.name}`,
+          }
+        const end = (result.offset ?? 0) + (result.text?.length ?? 0)
+        return {
+          output: `File ${path}, total characters ${result.totalChars}, slice ${result.offset}-${end}${end < (result.totalChars ?? 0) ? ` (continue with offset=${end})` : ' (end of file)'}\n---\n${result.text ?? ''}`,
+          mutated: false,
+          summary: `read ${mention.name}`,
+        }
+      }
       if (call.name !== 'read_attachment') {
         return { output: `unknown tool: ${call.name}`, isError: true, summary: call.name }
       }

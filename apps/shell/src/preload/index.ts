@@ -168,6 +168,12 @@ const projectApi: ProjectHomeApi = {
     })
     return Array.isArray(result) ? (result as TimelineEntryItem[]) : []
   },
+  async setProjectRoot(projectId) {
+    return (await ipcRenderer.invoke(PROJECT_CHANNELS.setRoot, { projectId })) as {
+      rootPath?: string
+      available: boolean
+    }
+  },
 }
 
 contextBridge.exposeInMainWorld('aiOfficeProject', projectApi)

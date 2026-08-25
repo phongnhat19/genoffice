@@ -5,6 +5,8 @@ import {
   AiProviderControls,
   AiTypingIndicator,
   isAiOAuthAuthorized,
+  ProjectMentionPicker,
+  type ProjectMention,
 } from '@genoffice/ui'
 import type { AiSettings } from '@genoffice/ai-provider'
 import { OrioMark } from '../ribbon-icons'
@@ -163,6 +165,9 @@ export function AiChatPanel({
   onAddPastedImage,
   onRemoveAttachment,
   prompt,
+  projectId,
+  mentions,
+  onMentionsChange,
   preview,
   aiBusy,
   onPromptChange,
@@ -191,6 +196,9 @@ export function AiChatPanel({
   readonly onAddPastedImage: (data: ArrayBuffer, ext: string) => void
   readonly onRemoveAttachment: (path: string) => void
   readonly prompt: string
+  readonly projectId: string | null
+  readonly mentions: readonly ProjectMention[]
+  readonly onMentionsChange: (mentions: readonly ProjectMention[]) => void
   readonly preview: ChangePlan | null
   readonly aiBusy: boolean
   readonly onPromptChange: (prompt: string) => void
@@ -209,6 +217,17 @@ export function AiChatPanel({
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const stickToBottomRef = useRef(true)
   const [dragOver, setDragOver] = useState(false)
+  const [mentionOpen, setMentionOpen] = useState(false)
+  const chooseMention = (mention: ProjectMention) => {
+    onMentionsChange(
+      mentions.some((item) => item.projectId === mention.projectId && item.path === mention.path)
+        ? mentions
+        : [...mentions, mention],
+    )
+    onPromptChange(prompt.replace(/@[^\s@]*$/, ''))
+    setMentionOpen(false)
+    inputRef.current?.focus()
+  }
   const asideRef = useRef<HTMLElement | null>(null)
   const [resizing, setResizing] = useState(false)
   /** data-URL previews for image attachments, keyed by path (Genspark composer thumbnails) */
@@ -626,6 +645,26 @@ export function AiChatPanel({
                   )}
                 </div>
               )}
+              {mentions.length > 0 && (
+                <div className="ai-project-mentions">
+                  {mentions.map((mention) => (
+                    <span
+                      className="ai-project-mention"
+                      key={`${mention.projectId}:${mention.path}`}
+                    >
+                      <span>@{mention.path}</span>
+                      <button
+                        aria-label={`Remove ${mention.name}`}
+                        onClick={() =>
+                          onMentionsChange(mentions.filter((item) => item !== mention))
+                        }
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </>
           }
           value={prompt}
@@ -653,7 +692,26 @@ export function AiChatPanel({
             </>
           }
           textareaRef={inputRef}
-          onChange={onPromptChange}
+          onChange={(value) => {
+            onPromptChange(value)
+            if (/@[^\s@]*$/.test(value)) setMentionOpen(true)
+          }}
+          onTextareaKeyDown={(event) => {
+            if (event.key === '@') setMentionOpen(true)
+            if (event.key === 'Escape' && mentionOpen) {
+              event.preventDefault()
+              setMentionOpen(false)
+            }
+          }}
+          overlay={
+            <ProjectMentionPicker
+              projectId={projectId}
+              open={mentionOpen}
+              query={prompt.match(/@([^\s@]*)$/)?.[1] ?? ''}
+              onSelect={chooseMention}
+              onClose={() => setMentionOpen(false)}
+            />
+          }
           onSend={send}
           onStop={onStop}
           onPasteFiles={onPasteFiles}

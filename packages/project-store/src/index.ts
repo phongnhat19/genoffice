@@ -16,4 +16,10 @@ export type {
   RebindChatArgs,
   ResolveChatArgs,
   ResolveChatResult,
+  ProjectRootEntry,
+  ProjectRootResult,
+  ProjectFileReadResult,
+  ProjectFileImageResult,
+  ListProjectRootArgs,
+  ReadProjectFileArgs,
 } from './ipc.js'

@@ -1,4 +1,5 @@
 export { AiComposer } from './AiComposer'
+export { ProjectMentionPicker, type ProjectMention } from './ProjectMentionPicker'
 export { AiProviderControls } from './AiProviderControls'
 export { AiOAuthAuthorizationPrompt, isAiOAuthAuthorized } from './AiOAuthAuthorizationPrompt'
 export { AiTypingIndicator } from './AiTypingIndicator'

@@ -118,6 +118,7 @@ export interface ProjectSummaryEntry {
   fileCount: number
   lastActiveAt: string
   isDefault: boolean
+  rootPath?: string
 }
 
 export interface TimelineEntryItem {
@@ -145,6 +146,8 @@ export interface ProjectHomeApi {
   moveFile(filePath: string, projectId: string): Promise<void>
   /** fetch the project timeline */
   getTimeline(projectId: string, limit?: number): Promise<TimelineEntryItem[]>
+  /** Opens the native directory picker and persists this project's AI context root. */
+  setProjectRoot(projectId: string): Promise<{ rootPath?: string; available: boolean }>
 }
 
 export const HOME_CHANNELS = {
@@ -180,4 +183,5 @@ export const PROJECT_CHANNELS = {
   delete: 'project:delete',
   moveFile: 'project:moveFile',
   timeline: 'project:timeline',
+  setRoot: 'project:setRoot',
 } as const
