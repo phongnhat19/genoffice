@@ -24,6 +24,8 @@ export class ProjectSyncService {
   private readonly watchers = new Map<string, FSWatcher>(); private readonly timers = new Map<string, NodeJS.Timeout>()
   constructor(private readonly store: ProjectStore, private readonly ai: OrioAiService) {}
   status(projectId: string): SyncStatus { const project = this.store.getProject(projectId); return { ...this.store.getProjectSyncState(projectId), available: Boolean(project) } }
+  async authorizationStatus() { return (await this.ai.view()).connections?.[0]?.status === 'connected' }
+  async authorize() { await this.ai.startAuthorization() }
   async listCloudProjects() { const response = await this.ai.cloudRequest('/api/v1/projects', { method: 'GET' }); return (await response.json() as { projects: unknown[] }).projects }
   setAutoSync(projectId: string, enabled: boolean) {
     this.store.setProjectSyncState(projectId, { autoSync: enabled, status: 'idle', error: undefined })

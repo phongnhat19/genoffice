@@ -141,7 +141,7 @@ export function RibbonHomeTab({ rb }: { rb: RibbonTabCtx }) {
   }
   return (
     <>
-      <Group label="Smart Office AI">
+      <Group label="ORIO agent">
         <button
           className={`rb-big ai-entry${aiOpen ? ' active' : ''}`}
           title={t('aiOpenAssistant')}
@@ -150,7 +150,7 @@ export function RibbonHomeTab({ rb }: { rb: RibbonTabCtx }) {
           <span className="rb-big-icon">
             <OrioMark size={26} />
           </span>
-          <span>Smart Office AI</span>
+          <span>ORIO agent</span>
         </button>
         <button
           className="rb-big ai-entry"

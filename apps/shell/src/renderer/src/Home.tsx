@@ -841,6 +841,8 @@ export function Home() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const [syncStatus, setSyncStatus] = useState<import('../../shared/home-api').ProjectSyncStatusEntry | null>(null)
   const [cloudProjects, setCloudProjects] = useState<import('../../shared/home-api').CloudProjectEntry[]>([])
+  const [syncingProjectId, setSyncingProjectId] = useState<string | null>(null)
+  const [cloudAuthorized, setCloudAuthorized] = useState(false)
 
   const projectMode = hasProjectApi()
 
@@ -890,7 +892,7 @@ export function Home() {
     reloadRef.current(true)
     setProjectTick((n) => n + 1)
   }
-  useEffect(() => { if (!selectedProjectId || !window.aiOfficeProject) return; void window.aiOfficeProject.getSyncStatus(selectedProjectId).then(setSyncStatus); void window.aiOfficeProject.listCloudProjects().then(setCloudProjects).catch(() => setCloudProjects([])) }, [selectedProjectId, projectTick])
+  useEffect(() => { if (!selectedProjectId || !window.aiOfficeProject) return; void window.aiOfficeProject.isCloudAuthorized().then(setCloudAuthorized); void window.aiOfficeProject.getSyncStatus(selectedProjectId).then(setSyncStatus); void window.aiOfficeProject.listCloudProjects().then(setCloudProjects).catch(() => setCloudProjects([])) }, [selectedProjectId, projectTick])
 
   useEffect(() => {
     reloadRef.current(false)
@@ -1456,18 +1458,28 @@ export function Home() {
           <div>
             <span className="section-label">ORIO Cloud</span>
             <div className="project-folder-path">
-              {syncStatus?.status === 'conflict' ? `${syncStatus.conflicts?.length ?? 0} conflict(s) need a choice` : syncStatus?.lastSyncedAt ? `Last synced ${new Date(syncStatus.lastSyncedAt).toLocaleString()}` : 'Not synced yet'}
+              {!cloudAuthorized
+                ? 'Authorize ORIO to enable private cloud sync.'
+                : syncingProjectId === proj.id || syncStatus?.status === 'syncing'
+                ? 'Syncing your project to ORIO Cloud…'
+                : syncStatus?.status === 'conflict'
+                  ? `${syncStatus.conflicts?.length ?? 0} conflict(s) need a choice`
+                  : syncStatus?.lastSyncedAt
+                    ? `Last synced ${new Date(syncStatus.lastSyncedAt).toLocaleString()}`
+                    : 'Not synced yet'}
             </div>
           </div>
-          <div className="selection-bar">
-            <button className="selection-action" onClick={() => void window.aiOfficeProject?.syncNow(proj.id).then((value) => value && setSyncStatus(value))}>Sync now</button>
+          {!cloudAuthorized ? <button className="selection-action" onClick={() => void window.aiOfficeProject?.authorizeCloud().then(() => setCloudAuthorized(true))}>Authorize</button> : <div className="selection-bar">
+            <button className="selection-action" disabled={syncingProjectId === proj.id || syncStatus?.status === 'syncing'} onClick={() => { setSyncingProjectId(proj.id); void window.aiOfficeProject?.syncNow(proj.id).then((value) => value && setSyncStatus(value)).catch((error) => setSyncStatus({ available: true, status: 'error', error: error instanceof Error ? error.message : 'Sync failed.' })).finally(() => setSyncingProjectId(null)) }}>
+              {syncingProjectId === proj.id || syncStatus?.status === 'syncing' ? 'Syncing…' : 'Sync now'}
+            </button>
             <button className="selection-action" onClick={() => void window.aiOfficeProject?.setAutoSync(proj.id, !syncStatus?.autoSync).then((value) => value && setSyncStatus(value))}>{syncStatus?.autoSync ? 'Auto sync on' : 'Enable auto sync'}</button>
             <button className="selection-action" onClick={() => void window.aiOfficeProject?.listCloudProjects().then(setCloudProjects)}>Import from Cloud</button>
             <button className="selection-action danger" onClick={() => { if (window.confirm('Delete this cloud copy? Your local project stays on this device.')) void window.aiOfficeProject?.deleteCloudProject(proj.id).then(refresh) }}>Delete cloud copy</button>
-          </div>
+          </div>}
         </section>
-        {syncStatus?.conflicts?.map((conflict) => <section className="project-folder" key={conflict.path}><div><span className="section-label">Conflict: {conflict.path}</span><div className="project-folder-path">Choose which version to keep.</div></div><div className="selection-bar">{(['local','cloud','both'] as const).map((choice) => <button className="selection-action" key={choice} onClick={() => void window.aiOfficeProject?.resolveConflict(proj.id, conflict.path, choice).then((value) => value && setSyncStatus(value))}>Keep {choice}</button>)}</div></section>)}
-        {cloudProjects.filter((cloud) => cloud.id !== proj.id).map((cloud) => <section className="project-folder" key={cloud.id}><div><span className="section-label">Cloud project: {cloud.name}</span><div className="project-folder-path">Revision {cloud.revision}</div></div><button className="selection-action" onClick={() => void window.aiOfficeProject?.importCloudProject(cloud.id).then(refresh)}>Import</button></section>)}
+        {cloudAuthorized && syncStatus?.conflicts?.map((conflict) => <section className="project-folder" key={conflict.path}><div><span className="section-label">Conflict: {conflict.path}</span><div className="project-folder-path">Choose which version to keep.</div></div><div className="selection-bar">{(['local','cloud','both'] as const).map((choice) => <button className="selection-action" key={choice} onClick={() => void window.aiOfficeProject?.resolveConflict(proj.id, conflict.path, choice).then((value) => value && setSyncStatus(value))}>Keep {choice}</button>)}</div></section>)}
+        {cloudAuthorized && cloudProjects.filter((cloud) => cloud.id !== proj.id).map((cloud) => <section className="project-folder" key={cloud.id}><div><span className="section-label">Cloud project: {cloud.name}</span><div className="project-folder-path">Revision {cloud.revision}</div></div><button className="selection-action" onClick={() => void window.aiOfficeProject?.importCloudProject(cloud.id).then(refresh)}>Import</button></section>)}
         <section className="quick-start" aria-label={t('secQuickStart')}>
           <div className="section-head">
             <span className="section-label">{t('secQuickStart')}</span>

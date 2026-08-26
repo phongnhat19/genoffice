@@ -885,12 +885,12 @@ export function AiPanel({
         onPointerDown={startResize}
         role="separator"
         aria-orientation="vertical"
-        aria-label="Smart Office"
+        aria-label="ORIO agent"
       />
       <div className="ai-panel-header">
         <span className="ai-panel-title">
           <OrioMark size={22} />
-          Smart Office
+          ORIO agent
         </span>
         <div className="ai-panel-header-actions">
           {chat.length > 0 && (

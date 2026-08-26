@@ -2079,7 +2079,7 @@ function Ribbon({
             <OrioMark size={26} />
           </span>
           <span>
-            <strong>Smart Office AI</strong>
+            <strong>ORIO agent</strong>
           </span>
         </button>
         <button

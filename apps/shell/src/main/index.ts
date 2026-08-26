@@ -1025,6 +1025,8 @@ function createShellWindow(): void {
   })
   ipcMain.handle(PROJECT_CHANNELS.resolveConflict, (_event, args: { projectId: string; path: string; choice: 'local' | 'cloud' | 'both' }) => projectSync?.resolveConflict(args.projectId, args.path, args.choice))
   ipcMain.handle(PROJECT_CHANNELS.deleteCloud, (_event, projectId: string) => projectSync?.deleteCloudProject(projectId))
+  ipcMain.handle(PROJECT_CHANNELS.cloudAuthorized, () => projectSync?.authorizationStatus() ?? false)
+  ipcMain.handle(PROJECT_CHANNELS.cloudAuthorize, () => projectSync?.authorize())
 
   // pushRecent-triggered docs menu rebuilds must not clobber the active tab's menu
   setDocsMenuGate(() => manager.list().some((t) => t.active && t.kind === 'docs'))

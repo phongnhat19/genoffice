@@ -187,6 +187,8 @@ const projectApi: ProjectHomeApi = {
   async importCloudProject(projectId) { return (await ipcRenderer.invoke(PROJECT_CHANNELS.importCloud, projectId)) as import('../shared/home-api').ProjectSyncStatusEntry | undefined },
   async resolveConflict(projectId, path, choice) { return (await ipcRenderer.invoke(PROJECT_CHANNELS.resolveConflict, { projectId, path, choice })) as import('../shared/home-api').ProjectSyncStatusEntry | undefined },
   async deleteCloudProject(projectId) { await ipcRenderer.invoke(PROJECT_CHANNELS.deleteCloud, projectId) },
+  async isCloudAuthorized() { return (await ipcRenderer.invoke(PROJECT_CHANNELS.cloudAuthorized)) === true },
+  async authorizeCloud() { await ipcRenderer.invoke(PROJECT_CHANNELS.cloudAuthorize) },
 }
 
 contextBridge.exposeInMainWorld('aiOfficeProject', projectApi)

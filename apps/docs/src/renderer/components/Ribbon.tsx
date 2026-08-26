@@ -1717,7 +1717,7 @@ function RibbonInner({
                   <span className="rb-big-icon">
                     <OrioMark size={26} />
                   </span>
-                  <span>Smart Office AI</span>
+                  <span>ORIO agent</span>
                 </button>
                 <button
                   className="rb-big ai-entry"
@@ -1811,7 +1811,7 @@ function RibbonInner({
                   <span>{t('aiTidyBtn')}</span>
                 </button>
               </div>
-              <div className="ribbon-group-label">Smart Office AI</div>
+              <div className="ribbon-group-label">ORIO agent</div>
             </div>
 
             <div className="ribbon-sep" />

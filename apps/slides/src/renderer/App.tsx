@@ -2629,7 +2629,7 @@ export function App() {
                           onClick={toggleAi}
                         >
                           <OrioMark size={14} />
-                          <span>Smart Office AI</span>
+                          <span>ORIO agent</span>
                         </button>
                         {/* Same one-click presets as the Home tab; hidden instead of
                         disabled while the deck has no real content */}

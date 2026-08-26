@@ -157,6 +157,8 @@ export interface ProjectHomeApi {
   importCloudProject(projectId: string): Promise<ProjectSyncStatusEntry | undefined>
   resolveConflict(projectId: string, path: string, choice: 'local' | 'cloud' | 'both'): Promise<ProjectSyncStatusEntry | undefined>
   deleteCloudProject(projectId: string): Promise<void>
+  isCloudAuthorized(): Promise<boolean>
+  authorizeCloud(): Promise<void>
 }
 export interface ProjectSyncStatusEntry { available: boolean; status?: 'idle' | 'syncing' | 'error' | 'conflict' | 'offline'; lastSyncedAt?: string; autoSync?: boolean; conflicts?: Array<{ path: string }>; error?: string }
 export interface CloudProjectEntry { id: string; name: string; revision: number; byteSize: number; updatedAt: string }
@@ -203,4 +205,6 @@ export const PROJECT_CHANNELS = {
   importCloud: 'project:importCloud',
   resolveConflict: 'project:resolveConflict',
   deleteCloud: 'project:deleteCloud',
+  cloudAuthorized: 'project:cloudAuthorized',
+  cloudAuthorize: 'project:cloudAuthorize',
 } as const
