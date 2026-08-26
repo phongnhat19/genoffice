@@ -24,7 +24,7 @@ type OrioStreamRequest = {
   messages: AiStreamRequest['messages']
   tools?: AiStreamRequest['tools'] | undefined
   maxTokens?: number | undefined
-  remoteSurface?: 'docs' | 'sheets' | 'slides' | 'slides_qc' | 'pdf' | undefined
+  remoteSurface?: 'docs' | 'sheets' | 'slides' | 'slides_qc' | 'pdf' | 'workspace' | undefined
   remoteSessionId?: string | undefined
 }
 
@@ -370,10 +370,24 @@ export class OrioAiService {
       : '/api/v1/ai/stream'
     const body = remote
       ? remoteSession && lastMessage?.role === 'tool'
-        ? { requestId: request.requestId, sessionId: remoteSession, toolResults: lastMessage.results }
+        ? {
+            requestId: request.requestId,
+            sessionId: remoteSession,
+            toolResults: lastMessage.results,
+          }
         : remoteSession && lastMessage?.role === 'user'
-          ? { requestId: request.requestId, sessionId: remoteSession, instruction: lastMessage.text, images: lastMessage.images }
-          : { requestId: request.requestId, surface: request.remoteSurface, instruction: lastMessage?.role === 'user' ? lastMessage.text : '', images: lastMessage?.role === 'user' ? lastMessage.images : undefined }
+          ? {
+              requestId: request.requestId,
+              sessionId: remoteSession,
+              instruction: lastMessage.text,
+              images: lastMessage.images,
+            }
+          : {
+              requestId: request.requestId,
+              surface: request.remoteSurface,
+              instruction: lastMessage?.role === 'user' ? lastMessage.text : '',
+              images: lastMessage?.role === 'user' ? lastMessage.images : undefined,
+            }
       : request
     const response = await this.request(endpoint, body, signal)
     if (!response.body) throw new Error('ORIO AI stream is unavailable.')
@@ -389,7 +403,18 @@ export class OrioAiService {
       for (const line of lines) {
         if (!line.startsWith('data:')) continue
         try {
-          const chunk = JSON.parse(line.slice(5).trim()) as { type: AiStreamChunk['type'] | 'session'; sessionId?: string; requestId?: string; text?: string; toolCall?: AiStreamChunk['toolCall']; error?: string; errorCode?: AiStreamChunk['errorCode']; stopReason?: string }
+          const chunk = JSON.parse(line.slice(5).trim()) as {
+            type: AiStreamChunk['type'] | 'session'
+            sessionId?: string
+            requestId?: string
+            text?: string
+            toolCall?: AiStreamChunk['toolCall']
+            activity?: AiStreamChunk['activity']
+            citation?: AiStreamChunk['citation']
+            error?: string
+            errorCode?: AiStreamChunk['errorCode']
+            stopReason?: string
+          }
           if (remote && chunk.type === 'session' && chunk.sessionId) {
             this.remoteSessions.set(request.remoteSessionId!, chunk.sessionId)
             continue

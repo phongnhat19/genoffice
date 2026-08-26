@@ -16,6 +16,7 @@ import {
   dialog,
   ipcMain,
   nativeImage,
+  safeStorage,
   session,
   shell,
   webContents,
@@ -38,6 +39,7 @@ import {
   editMenuTemplate,
   installContextMenu,
   installNavigationGuard,
+  OrioAiService,
   windowMenuTemplate,
 } from '@genoffice/electron-utils'
 import { readAppSettings, writeAppSetting } from './app-settings'
@@ -111,6 +113,8 @@ import type { TabKind } from '../shared/tabs-api'
 import { TABS_CHANNELS } from '../shared/tabs-api'
 import { normalizeRecentQuery, pageRecentPaths, statExistingPaths } from './recent-files'
 import { TabManager } from './tab-manager'
+import { WorkspaceBroker } from './workspace-broker'
+import { WORKSPACE_CHANNELS } from '../shared/workspace-api'
 import { applyUpdateChannel, initAutoUpdater } from './updater'
 import { isUpdateChannel, type UpdateChannel } from '../shared/update-api'
 
@@ -899,6 +903,7 @@ const tm = (key: Parameters<typeof tMain>[1], params?: Parameters<typeof tMain>[
 
 let shellWindow: BrowserWindow | null = null
 let tabManager: TabManager | null = null
+let workspaceBroker: WorkspaceBroker | null = null
 
 /**
  * When the user creates a file from a specific project view, remember which
@@ -992,6 +997,18 @@ function createShellWindow(): void {
           : tm('untitledSheet'),
   )
   tabManager = manager
+  workspaceBroker = new WorkspaceBroker({
+    store: new ProjectStore(app.getPath('userData')),
+    ai: new OrioAiService({
+      path: () => join(app.getPath('userData'), 'ai-settings.json'),
+      safeStorage,
+      openExternal: (url) => shell.openExternal(url),
+    }),
+    openPath: (path) => openDocumentPath(path),
+    onTaskChanged: (task) => {
+      if (!win.isDestroyed()) win.webContents.send(WORKSPACE_CHANNELS.changed, task)
+    },
+  })
 
   // pushRecent-triggered docs menu rebuilds must not clobber the active tab's menu
   setDocsMenuGate(() => manager.list().some((t) => t.active && t.kind === 'docs'))
@@ -1422,7 +1439,6 @@ function registerHomeIpc(): void {
   ipcMain.handle(HOME_CHANNELS.setOnboardingSeen, () => {
     writeAppSetting(APP_SETTINGS_PATH(), 'onboardingSeen', true)
   })
-
 }
 
 function stringPaths(value: unknown): string[] {
@@ -1459,6 +1475,7 @@ function menuIcons(): MenuIconSet {
 
 const TAB_MENU_ICON: Record<TabKind, keyof MenuIconSet> = {
   home: 'home',
+  agent: 'home',
   docs: 'docx',
   sheets: 'xlsx',
   slides: 'pptx',
@@ -1469,6 +1486,7 @@ function registerTabsIpc(): void {
   ipcMain.handle(TABS_CHANNELS.list, () => tabManager?.list() ?? [])
   ipcMain.handle(TABS_CHANNELS.activate, (_event, id: string) => tabManager?.activateTab(id))
   ipcMain.handle(TABS_CHANNELS.close, (_event, id: string) => tabManager?.closeTab(id))
+  ipcMain.handle(TABS_CHANNELS.openAgent, () => tabManager?.openAgentTab())
   ipcMain.handle(TABS_CHANNELS.reorder, (_event, id: string, toIndex: number) => {
     if (typeof id === 'string' && Number.isInteger(toIndex)) tabManager?.reorderTab(id, toIndex)
   })
@@ -1523,6 +1541,35 @@ function registerTabsIpc(): void {
         ? { x: Math.round(x), y: Math.round(y) }
         : {}),
     })
+  })
+}
+
+function registerWorkspaceIpc(): void {
+  ipcMain.handle(WORKSPACE_CHANNELS.list, (_event, projectId: unknown) => {
+    if (typeof projectId !== 'string') return []
+    return workspaceBroker?.list(projectId) ?? []
+  })
+  ipcMain.handle(WORKSPACE_CHANNELS.start, (_event, args: unknown) => {
+    const input = args as { projectId?: unknown; instruction?: unknown }
+    if (typeof input?.projectId !== 'string' || typeof input.instruction !== 'string')
+      throw new Error('Invalid workspace task.')
+    return workspaceBroker?.start(input.projectId, input.instruction)
+  })
+  ipcMain.handle(WORKSPACE_CHANNELS.cancel, (_event, args: unknown) => {
+    const input = args as { projectId?: unknown; taskId?: unknown }
+    if (typeof input?.projectId !== 'string' || typeof input.taskId !== 'string')
+      throw new Error('Invalid workspace task.')
+    workspaceBroker?.cancel(input.projectId, input.taskId)
+  })
+  ipcMain.handle(WORKSPACE_CHANNELS.decide, (_event, args: unknown) => {
+    const input = args as { projectId?: unknown; taskId?: unknown; decision?: unknown }
+    if (
+      typeof input?.projectId !== 'string' ||
+      typeof input.taskId !== 'string' ||
+      (input.decision !== 'approve' && input.decision !== 'reject')
+    )
+      throw new Error('Invalid workspace approval.')
+    return workspaceBroker?.decide(input.projectId, input.taskId, input.decision)
   })
 }
 
@@ -1782,6 +1829,7 @@ registerProjectIpc()
 registerDocsIpc()
 registerHomeIpc()
 registerTabsIpc()
+registerWorkspaceIpc()
 
 // sheets' project:resolveChat goes through the handler registered by docs-main; the sessionId reverse lookup hooks in here
 setSessionPathResolver(resolveSheetsSessionPath)

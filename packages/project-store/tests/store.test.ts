@@ -50,6 +50,51 @@ describe('ensureDefaultProject', () => {
   })
 })
 
+describe('workspace task persistence', () => {
+  let tmpDir: string
+  let store: ProjectStore
+
+  beforeEach(() => {
+    tmpDir = makeTempDir()
+    store = new ProjectStore(tmpDir)
+    store.ensureDefaultProject()
+  })
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  it('persists project-scoped task activity and citations without touching file chats', () => {
+    store.saveWorkspaceTask({
+      id: 'task-1',
+      projectId: 'default',
+      title: 'Research quarterly trends',
+      status: 'completed',
+      createdAt: '2026-08-26T00:00:00.000Z',
+      updatedAt: '2026-08-26T01:00:00.000Z',
+      messages: [{ id: 'm1', role: 'user', text: 'Research', ts: '2026-08-26T00:00:00.000Z' }],
+      activity: [
+        {
+          id: 'a1',
+          name: 'web_search',
+          summary: 'Found sources',
+          source: 'research',
+          state: 'completed',
+          ts: '2026-08-26T00:01:00.000Z',
+        },
+      ],
+      citations: [{ id: 'c1', title: 'Source', url: 'https://example.com' }],
+      stagedFiles: [],
+    })
+
+    expect(store.getWorkspaceTask('default', 'task-1')?.citations[0]?.url).toBe(
+      'https://example.com',
+    )
+    expect(store.listWorkspaceTasks('default').map((task) => task.id)).toEqual(['task-1'])
+    expect(store.loadChat('default', 'task-1')).toEqual([])
+  })
+})
+
 // ────────────────────────────────────────────────────────────
 // 2. resolveProjectForFile
 // ────────────────────────────────────────────────────────────

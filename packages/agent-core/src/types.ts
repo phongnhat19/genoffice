@@ -65,6 +65,24 @@ export interface ToolExecution {
   display?: ToolDisplay
 }
 
+/** Server-executed, display-only activity (for example a curated MCP research call). */
+export interface AgentRemoteToolActivity {
+  id: string
+  name: string
+  summary: string
+  state: 'running' | 'completed' | 'error'
+  source: 'research'
+  isError?: boolean
+}
+
+/** Source metadata returned by a server-owned research connector. */
+export interface AgentCitation {
+  id: string
+  title: string
+  url: string
+  snippet?: string
+}
+
 // ---- run phase (drives the in-progress status line in chat UIs) ----
 
 export type AgentPhaseKind =
@@ -88,7 +106,7 @@ export interface AgentStreamRequest {
   messages: AgentMessage[]
   tools: AgentToolDef[]
   /** With this marker the transport uses ORIO's server-owned agent protocol. */
-  remoteSurface?: 'docs' | 'sheets' | 'slides' | 'slides_qc' | 'pdf' | undefined
+  remoteSurface?: 'docs' | 'sheets' | 'slides' | 'slides_qc' | 'pdf' | 'workspace' | undefined
   remoteSessionId?: string | undefined
 }
 
@@ -100,6 +118,9 @@ export interface AgentStreamCallbacks {
   onPhase?(phase: AgentPhase): void
   /** normalized stop reason of the turn ('max_tokens' = cut off by the token limit); transports may omit this */
   onStopReason?(reason: string): void
+  /** Remote connector work is already executed by the service; never dispatch it locally. */
+  onRemoteToolActivity?(activity: AgentRemoteToolActivity): void
+  onCitation?(citation: AgentCitation): void
   onDone(): void
   onError(error: string): void
 }

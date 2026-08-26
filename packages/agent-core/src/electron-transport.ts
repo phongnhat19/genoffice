@@ -4,6 +4,8 @@ import type {
   AgentToolDef,
   AgentTransport,
   AgentMessage,
+  AgentCitation,
+  AgentRemoteToolActivity,
 } from './types'
 
 /**
@@ -14,7 +16,7 @@ import type {
 export interface IpcStreamChunk {
   requestId: string
   /** 'ping' = wire-level keepalive; re-arms the silence watchdog and carries no payload */
-  type: 'delta' | 'tool-call' | 'done' | 'error' | 'ping'
+  type: 'delta' | 'tool-call' | 'tool-activity' | 'citation' | 'done' | 'error' | 'ping'
   text?: string
   toolCall?: AgentToolCall
   error?: string
@@ -22,6 +24,8 @@ export interface IpcStreamChunk {
   errorCode?: 'timeout' | 'credits' | 'update_required'
   /** normalized stop reason on 'done' ('max_tokens' = cut off by the token limit) */
   stopReason?: string
+  activity?: AgentRemoteToolActivity
+  citation?: AgentCitation
 }
 
 /** The request forwarded to the main process to start one streaming turn. */
@@ -98,6 +102,12 @@ export function createIpcTransport<S>(options: IpcTransportOptions<S>): AgentTra
         } else if (chunk.type === 'tool-call') {
           armSilence()
           if (chunk.toolCall) cb.onToolCall(chunk.toolCall)
+        } else if (chunk.type === 'tool-activity') {
+          armSilence()
+          if (chunk.activity) cb.onRemoteToolActivity?.(chunk.activity)
+        } else if (chunk.type === 'citation') {
+          armSilence()
+          if (chunk.citation) cb.onCitation?.(chunk.citation)
         } else if (chunk.type === 'done') {
           settle()
           if (chunk.stopReason) cb.onStopReason?.(chunk.stopReason)
@@ -123,7 +133,9 @@ export function createIpcTransport<S>(options: IpcTransportOptions<S>): AgentTra
             system: request.system,
             messages: request.messages,
             tools: request.tools,
-            ...(request.remoteSurface ? { remoteSurface: request.remoteSurface, remoteSessionId: request.remoteSessionId } : {}),
+            ...(request.remoteSurface
+              ? { remoteSurface: request.remoteSurface, remoteSessionId: request.remoteSessionId }
+              : {}),
           }),
         ).catch((err: unknown) => {
           fail(err instanceof Error ? err.message : options.unknownErrorText())

@@ -38,6 +38,7 @@ interface TabRecord {
 /** must match the tab strip's rendered height (apps/shell/src/renderer/src/TabBar.tsx) */
 const TAB_STRIP_HEIGHT = 40
 const HOME_ID = 'home'
+const AGENT_ID = 'agent'
 
 /**
  * Owns every open tab (Home + docs + sheets) inside the shell's single
@@ -46,9 +47,7 @@ const HOME_ID = 'home'
  * own — hiding every other tab reveals the shell window's own content.
  */
 export class TabManager {
-  private readonly tabs: TabRecord[] = [
-    { id: HOME_ID, kind: 'home', view: null, title: 'ORIO' },
-  ]
+  private readonly tabs: TabRecord[] = [{ id: HOME_ID, kind: 'home', view: null, title: 'ORIO' }]
   private activeId: string = HOME_ID
   private nextId = 1
   /** tab whose page entered HTML fullscreen (e.g. slides slideshow) — its view covers the tab strip */
@@ -122,6 +121,13 @@ export class TabManager {
 
   openHomeTab(): void {
     this.activateTab(HOME_ID)
+  }
+
+  /** The shell Agent is a singleton shell-rendered tab, like Home (no editor WebContentsView). */
+  openAgentTab(): void {
+    if (!this.tabs.some((tab) => tab.id === AGENT_ID))
+      this.tabs.push({ id: AGENT_ID, kind: 'agent', view: null, title: 'Agent' })
+    this.activateTab(AGENT_ID)
   }
 
   openDocsTab(openPath?: string, options?: { newBlank?: boolean }): string {

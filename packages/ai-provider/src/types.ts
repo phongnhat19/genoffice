@@ -1,5 +1,21 @@
 import type { AgentMessage, AgentToolCall, AgentToolDef } from '@genoffice/agent-core'
 
+export interface AiRemoteToolActivity {
+  id: string
+  name: string
+  summary: string
+  state: 'running' | 'completed' | 'error'
+  source: 'research'
+  isError?: boolean
+}
+
+export interface AiCitation {
+  id: string
+  title: string
+  url: string
+  snippet?: string
+}
+
 export type AiProviderId =
   'anthropic' | 'gemini' | 'deepseek' | 'openai' | 'openrouter' | 'custom' | 'orio'
 export type AiAuthType = 'oauth' | 'api-key'
@@ -71,7 +87,7 @@ export interface AiStreamRequest {
   tools?: AgentToolDef[]
   maxTokens?: number
   /** Server-owned ORIO agent protocol. System and tool schema fields are empty when this is present. */
-  remoteSurface?: 'docs' | 'sheets' | 'slides' | 'slides_qc' | 'pdf' | undefined
+  remoteSurface?: 'docs' | 'sheets' | 'slides' | 'slides_qc' | 'pdf' | 'workspace' | undefined
   /** Stable renderer-local handle mapped to an opaque ORIO server session. */
   remoteSessionId?: string | undefined
 }
@@ -79,7 +95,7 @@ export interface AiStreamRequest {
 export interface AiStreamChunk {
   requestId: string
   /** 'ping' = wire-level keepalive so the renderer can tell a live stream from a dead one */
-  type: 'delta' | 'tool-call' | 'done' | 'error' | 'ping'
+  type: 'delta' | 'tool-call' | 'tool-activity' | 'citation' | 'done' | 'error' | 'ping'
   text?: string
   /** complete parsed tool call (emitted once its arguments finish streaming) */
   toolCall?: AgentToolCall
@@ -88,4 +104,6 @@ export interface AiStreamChunk {
   errorCode?: 'timeout' | 'credits' | 'update_required'
   /** normalized stop reason carried on 'done' ('max_tokens' = output cut off by the token limit) */
   stopReason?: string
+  activity?: AiRemoteToolActivity
+  citation?: AiCitation
 }

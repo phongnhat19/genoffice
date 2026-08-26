@@ -8,6 +8,12 @@ export type {
   ProjectSummary,
   TimelineEntry,
   ToolActivity,
+  WorkspaceCitation,
+  WorkspaceStagedFile,
+  WorkspaceTask,
+  WorkspaceTaskActivity,
+  WorkspaceTaskMessage,
+  WorkspaceTaskStatus,
 } from './types.js'
 export type {
   AppendChatArgs,

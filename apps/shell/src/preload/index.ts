@@ -13,6 +13,9 @@ import type {
 import { HOME_CHANNELS, PROJECT_CHANNELS } from '../shared/home-api'
 import type { TabsApi, TabSummary } from '../shared/tabs-api'
 import { TABS_CHANNELS } from '../shared/tabs-api'
+import type { WorkspaceAgentApi } from '../shared/workspace-api'
+import { WORKSPACE_CHANNELS } from '../shared/workspace-api'
+import type { WorkspaceTask } from '@genoffice/project-store'
 
 const UI_LANGUAGES: readonly UiLanguage[] = [
   'zh',
@@ -198,6 +201,9 @@ const tabsApi: TabsApi = {
   async reorder(id, toIndex) {
     await ipcRenderer.invoke(TABS_CHANNELS.reorder, id, toIndex)
   },
+  async openAgent() {
+    await ipcRenderer.invoke(TABS_CHANNELS.openAgent)
+  },
   onChanged(handler) {
     const listener = (_event: IpcRendererEvent, tabs: TabSummary[]) => handler(tabs)
     ipcRenderer.on(TABS_CHANNELS.changed, listener)
@@ -206,3 +212,26 @@ const tabsApi: TabsApi = {
 }
 
 contextBridge.exposeInMainWorld('aiOfficeTabs', tabsApi)
+
+const workspaceApi: WorkspaceAgentApi = {
+  async list(projectId) {
+    const result: unknown = await ipcRenderer.invoke(WORKSPACE_CHANNELS.list, projectId)
+    return Array.isArray(result) ? (result as WorkspaceTask[]) : []
+  },
+  async start(args) {
+    return (await ipcRenderer.invoke(WORKSPACE_CHANNELS.start, args)) as WorkspaceTask
+  },
+  async cancel(args) {
+    await ipcRenderer.invoke(WORKSPACE_CHANNELS.cancel, args)
+  },
+  async decide(args) {
+    return (await ipcRenderer.invoke(WORKSPACE_CHANNELS.decide, args)) as WorkspaceTask
+  },
+  onChanged(handler) {
+    const listener = (_event: IpcRendererEvent, task: WorkspaceTask) => handler(task)
+    ipcRenderer.on(WORKSPACE_CHANNELS.changed, listener)
+    return () => ipcRenderer.removeListener(WORKSPACE_CHANNELS.changed, listener)
+  },
+}
+
+contextBridge.exposeInMainWorld('aiOfficeWorkspace', workspaceApi)

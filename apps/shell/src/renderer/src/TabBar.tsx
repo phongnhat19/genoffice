@@ -66,6 +66,27 @@ function HomeIcon() {
   )
 }
 
+function AgentIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 3.5a8.5 8.5 0 1 0 8.5 8.5"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+      <path
+        d="M12 7v5l3.5 2"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M18 3v3m-1.5-1.5h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 function SlideIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 240 240" fill="none" aria-hidden="true">
@@ -80,6 +101,7 @@ function SlideIcon() {
 
 const KIND_ICON: Record<TabSummary['kind'], ReactElement> = {
   home: <HomeIcon />,
+  agent: <AgentIcon />,
   docs: <DocIcon />,
   sheets: <SheetIcon />,
   slides: <SlideIcon />,
@@ -311,6 +333,13 @@ export function TabBar() {
             </div>
           )
         })}
+        <button
+          className="tab-new-btn"
+          title="Workspace Agent"
+          onClick={() => void window.aiOfficeTabs.openAgent()}
+        >
+          <AgentIcon />
+        </button>
         <button
           className="tab-new-btn"
           title={t('newTab')}

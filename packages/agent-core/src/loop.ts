@@ -3,6 +3,8 @@ import type {
   AgentImage,
   AgentMessage,
   AgentStreamHandle,
+  AgentCitation,
+  AgentRemoteToolActivity,
   AgentToolCall,
   AgentToolResult,
   AgentTransport,
@@ -53,6 +55,8 @@ export interface AgentLoopEvents<TSnapshot> {
   onTurnEnd?(): void
   onDone?(result: AgentRunResult): void
   onError?(error: string): void
+  onRemoteToolActivity?(activity: AgentRemoteToolActivity): void
+  onCitation?(citation: AgentCitation): void
 }
 
 /** Context compaction config (budget tracked in UTF-8 bytes rather than message count) */
@@ -82,7 +86,7 @@ export interface AgentLoopOptions<TSnapshot = unknown> {
   /** appended to the system prompt each turn (e.g. reply-language directive following the UI language) */
   systemSuffix?(): string
   /** Keeps prompts and schemas on ORIO; desktop still executes returned local tool calls. */
-  remoteSurface?: 'docs' | 'sheets' | 'slides' | 'slides_qc' | 'pdf' | undefined
+  remoteSurface?: 'docs' | 'sheets' | 'slides' | 'slides_qc' | 'pdf' | 'workspace' | undefined
   remoteSessionId?: string | undefined
 }
 
@@ -483,10 +487,17 @@ export class AgentLoop<TSnapshot = unknown> {
     let settled = false
     this.handle = this.options.transport.stream(
       {
-        system: this.options.remoteSurface ? '' : this.options.skill.systemPrompt + (this.options.systemSuffix?.() ?? ''),
+        system: this.options.remoteSurface
+          ? ''
+          : this.options.skill.systemPrompt + (this.options.systemSuffix?.() ?? ''),
         messages: [...this.history],
         tools: this.options.remoteSurface || this.finalizing ? [] : this.options.skill.tools,
-        ...(this.options.remoteSurface ? { remoteSurface: this.options.remoteSurface, remoteSessionId: this.options.remoteSessionId } : {}),
+        ...(this.options.remoteSurface
+          ? {
+              remoteSurface: this.options.remoteSurface,
+              remoteSessionId: this.options.remoteSessionId,
+            }
+          : {}),
       },
       {
         onDelta: (text) => {
@@ -502,6 +513,8 @@ export class AgentLoop<TSnapshot = unknown> {
           if (generation !== this.generation || settled) return
           this.turnStopReason = reason
         },
+        onRemoteToolActivity: (activity) => this.options.events?.onRemoteToolActivity?.(activity),
+        onCitation: (citation) => this.options.events?.onCitation?.(citation),
         onDone: () => {
           if (generation !== this.generation || settled) return
           settled = true

@@ -36,6 +36,7 @@ import type {
   ProjectInfo,
   ProjectSummary,
   TimelineEntry,
+  WorkspaceTask,
 } from './types.js'
 
 // ────────────────────────────────────────────────────────────
@@ -101,6 +102,14 @@ export class ProjectStore {
 
   private chatPath(projectId: string, chatId: string): string {
     return join(this.chatsDir(projectId), `${chatId}.jsonl`)
+  }
+
+  private tasksDir(projectId: string): string {
+    return join(this.projectDir(projectId), 'workspace-tasks')
+  }
+
+  private taskPath(projectId: string, taskId: string): string {
+    return join(this.tasksDir(projectId), `${taskId}.json`)
   }
 
   // ── seq counters (in-memory cache, initialized from JSONL line count on first read) ──
@@ -729,5 +738,41 @@ export class ProjectStore {
       return b.seq - a.seq
     })
     return entries.slice(0, limit)
+  }
+
+  /** Saves the complete workspace-agent record atomically. The caller owns task-state transitions. */
+  saveWorkspaceTask(task: WorkspaceTask): void {
+    if (!task.projectId || !task.id) throw new Error('Invalid workspace task')
+    if (!this.readProject(task.projectId))
+      throw new Error(`Project does not exist: ${task.projectId}`)
+    writeJson(this.taskPath(task.projectId, task.id), task)
+    const project = this.readProject(task.projectId)
+    if (project) {
+      project.updatedAt = nowIso()
+      this.writeProject(project)
+    }
+  }
+
+  getWorkspaceTask(projectId: string, taskId: string): WorkspaceTask | null {
+    if (!projectId || !taskId) return null
+    return readJson<WorkspaceTask>(this.taskPath(projectId, taskId))
+  }
+
+  /** Most-recent-first task list. Corrupt records are skipped rather than blocking the Agent tab. */
+  listWorkspaceTasks(projectId: string, limit = 100): WorkspaceTask[] {
+    const dir = this.tasksDir(projectId)
+    if (!existsSync(dir)) return []
+    const tasks: WorkspaceTask[] = []
+    try {
+      for (const file of readdirSync(dir)) {
+        if (!file.endsWith('.json')) continue
+        const task = readJson<WorkspaceTask>(join(dir, file))
+        if (task?.projectId === projectId && typeof task.id === 'string') tasks.push(task)
+      }
+    } catch {
+      return []
+    }
+    tasks.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    return tasks.slice(0, Math.max(0, limit))
   }
 }

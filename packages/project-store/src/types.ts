@@ -128,3 +128,60 @@ export interface TimelineEntry {
   /** Message seq within the chat */
   seq: number
 }
+
+// ────────────────────────────────────────────────────────────
+// Workspace-agent task records
+// ────────────────────────────────────────────────────────────
+
+/** A source returned by an ORIO-curated, read-only research connector. */
+export interface WorkspaceCitation {
+  id: string
+  title: string
+  url: string
+  /** Short provider supplied provenance text; never document content. */
+  snippet?: string
+}
+
+export interface WorkspaceTaskActivity {
+  id: string
+  name: string
+  summary: string
+  state: 'running' | 'completed' | 'error'
+  source: 'local' | 'research'
+  ts: string
+  isError?: boolean
+}
+
+export interface WorkspaceTaskMessage {
+  id: string
+  role: 'user' | 'assistant' | 'system'
+  text: string
+  ts: string
+}
+
+export interface WorkspaceStagedFile {
+  /** Project-root relative path for an existing file; omitted for a new tab. */
+  path?: string
+  kind: 'docs' | 'sheets' | 'slides' | 'pdf'
+  title: string
+  summary: string
+  isNew?: boolean
+}
+
+export type WorkspaceTaskStatus =
+  'running' | 'review' | 'completed' | 'approved' | 'rejected' | 'cancelled' | 'error'
+
+/** Persisted project-scoped agent thread. Sensitive file content is never stored here. */
+export interface WorkspaceTask {
+  id: string
+  projectId: string
+  title: string
+  status: WorkspaceTaskStatus
+  createdAt: string
+  updatedAt: string
+  messages: WorkspaceTaskMessage[]
+  activity: WorkspaceTaskActivity[]
+  citations: WorkspaceCitation[]
+  stagedFiles: WorkspaceStagedFile[]
+  error?: string
+}

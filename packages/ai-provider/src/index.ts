@@ -7,6 +7,8 @@ export type {
   AiProviderConnectionView,
   AiProviderId,
   AiProviderMeta,
+  AiCitation,
+  AiRemoteToolActivity,
   AiSettings,
   AiStreamChunk,
   AiStreamRequest,
