@@ -527,7 +527,7 @@ export class ProjectStore {
    * sha256(name) plus a timestamp suffix to avoid collisions).
    * Returns the newly created ProjectData.
    */
-  createProject(name: string): ProjectData {
+  createProject(name: string, rootPath?: string): ProjectData {
     const trimmed = name.trim()
     if (!trimmed) throw new Error('Project name cannot be empty')
     const now = nowIso()
@@ -544,6 +544,7 @@ export class ProjectStore {
       updatedAt: now,
       files: [],
     }
+    if (rootPath) data.rootPath = rootPath
     ensureDir(this.projectDir(id))
     this.writeProject(data)
     const index = this.readIndex()

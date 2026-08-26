@@ -124,6 +124,9 @@ function ProjectPanel({ projects, selectedId, onSelect, onRefresh }: ProjectPane
   const { t } = useI18n()
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
+  const [newRootPath, setNewRootPath] = useState('')
+  const [createError, setCreateError] = useState<string | null>(null)
+  const [isSubmittingCreate, setIsSubmittingCreate] = useState(false)
   // open menu id + fixed-position anchor (viewport coords), so the popup can
   // escape the scrollable project list without the list losing overflow-y
   const [projMenu, setProjMenu] = useState<{ id: string; top: number; right: number } | null>(null)
@@ -151,13 +154,35 @@ function ProjectPanel({ projects, selectedId, onSelect, onRefresh }: ProjectPane
     }
   }, [projMenu])
 
-  const commitCreate = async () => {
-    const name = newName.trim()
+  const closeCreate = () => {
     setCreating(false)
     setNewName('')
-    if (!name) return
-    await window.aiOfficeProject?.createProject(name)
-    onRefresh()
+    setNewRootPath('')
+    setCreateError(null)
+  }
+
+  const chooseCreateFolder = async () => {
+    const result = await window.aiOfficeProject?.chooseProjectFolder()
+    if (result?.rootPath) {
+      setNewRootPath(result.rootPath)
+      setCreateError(null)
+    }
+  }
+
+  const commitCreate = async () => {
+    const name = newName.trim()
+    if (!name || !newRootPath || isSubmittingCreate) return
+    setIsSubmittingCreate(true)
+    setCreateError(null)
+    try {
+      await window.aiOfficeProject?.createProject({ name, rootPath: newRootPath })
+      closeCreate()
+      onRefresh()
+    } catch {
+      setCreateError(t('createProjectFailed'))
+    } finally {
+      setIsSubmittingCreate(false)
+    }
   }
 
   const commitRename = async () => {
@@ -196,6 +221,15 @@ function ProjectPanel({ projects, selectedId, onSelect, onRefresh }: ProjectPane
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [confirmDeleteId])
 
+  useEffect(() => {
+    if (!creating) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeCreate()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [creating])
+
   return (
     <div className="proj-panel">
       <div className="proj-panel-head">
@@ -216,26 +250,6 @@ function ProjectPanel({ projects, selectedId, onSelect, onRefresh }: ProjectPane
           </svg>
         </button>
       </div>
-
-      {creating && (
-        <div className="proj-new-row">
-          <input
-            ref={newInputRef}
-            className="proj-rename-input"
-            placeholder={t('projectName')}
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            onBlur={() => void commitCreate()}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void commitCreate()
-              if (e.key === 'Escape') {
-                setCreating(false)
-                setNewName('')
-              }
-            }}
-          />
-        </div>
-      )}
 
       <ul className="proj-list">
         {projects.map((proj) => {
@@ -348,6 +362,61 @@ function ProjectPanel({ projects, selectedId, onSelect, onRefresh }: ProjectPane
           )
         })}
       </ul>
+
+      {creating && (
+        <div className="modal-overlay" onClick={closeCreate}>
+          <form
+            className="modal project-create-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-project-title"
+            onClick={(event) => event.stopPropagation()}
+            onSubmit={(event) => {
+              event.preventDefault()
+              void commitCreate()
+            }}
+          >
+            <h3 id="create-project-title">{t('createProjectTitle')}</h3>
+            <label className="project-create-field">
+              <span>{t('projectName')}</span>
+              <input
+                ref={newInputRef}
+                className="proj-rename-input"
+                value={newName}
+                onChange={(event) => setNewName(event.target.value)}
+              />
+            </label>
+            <div className="project-create-field">
+              <span>{t('projectFolder')}</span>
+              <div className="project-folder-picker">
+                <output className={newRootPath ? 'selected' : undefined} title={newRootPath}>
+                  {newRootPath || t('projectFolderRequired')}
+                </output>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => void chooseCreateFolder()}
+                >
+                  {newRootPath ? t('changeProjectFolder') : t('selectProjectFolder')}
+                </button>
+              </div>
+            </div>
+            {createError && <p className="project-create-error">{createError}</p>}
+            <div className="modal-buttons">
+              <button type="button" className="btn btn-secondary" onClick={closeCreate}>
+                {t('cancel')}
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={!newName.trim() || !newRootPath || isSubmittingCreate}
+              >
+                {t('createProjectTitle')}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {confirmDeleteId &&
         (() => {

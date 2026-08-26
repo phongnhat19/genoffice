@@ -2709,12 +2709,37 @@ export function registerProjectIpc(): void {
     return getProjectStore().listProjectFiles(args.projectId)
   })
 
+  const chooseProjectFolder = async (event: IpcMainInvokeEvent): Promise<string | undefined> => {
+    const result = await openDialog(event, {
+      title: 'Choose project folder',
+      properties: ['openDirectory', 'createDirectory'],
+    })
+    return result.canceled ? undefined : result.filePaths[0]
+  }
+
   /** Create a project */
-  ipcMain.handle('project:create', (_event, args: { name: string }) => {
+  ipcMain.handle('project:create', (_event, args: { name: string; rootPath?: string }) => {
     const store = getProjectStore()
-    const data = store.createProject(args.name)
+    if (typeof args?.name !== 'string') throw new Error('Project name is required.')
+    let rootPath: string | undefined
+    if (args.rootPath !== undefined) {
+      if (typeof args.rootPath !== 'string') throw new Error('Invalid project folder.')
+      try {
+        const resolved = realpathSync(args.rootPath)
+        if (!statSync(resolved).isDirectory()) throw new Error('not a directory')
+        rootPath = resolved
+      } catch {
+        throw new Error('The selected project folder is unavailable.')
+      }
+    }
+    const data = store.createProject(args.name, rootPath)
     // returns ProjectSummary shape
     return store.listProjectsSummary().find((s) => s.id === data.id) ?? data
+  })
+
+  ipcMain.handle('project:chooseFolder', async (event) => {
+    const rootPath = await chooseProjectFolder(event)
+    return rootPath ? { rootPath } : {}
   })
 
   /** Rename a project */
@@ -2770,12 +2795,8 @@ export function registerProjectIpc(): void {
     }
   })
   ipcMain.handle('project:setRoot', async (event, args: { projectId: string }) => {
-    const result = await openDialog(event, {
-      title: 'Choose project folder',
-      properties: ['openDirectory', 'createDirectory'],
-    })
-    if (!result.canceled && result.filePaths[0])
-      getProjectStore().setProjectRoot(args.projectId, result.filePaths[0])
+    const rootPath = await chooseProjectFolder(event)
+    if (rootPath) getProjectStore().setProjectRoot(args.projectId, rootPath)
     const status = projectRoot(args.projectId)
     return {
       rootPath: getProjectStore().getProject(args.projectId)?.rootPath,

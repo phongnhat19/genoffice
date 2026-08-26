@@ -32,6 +32,23 @@ test.describe('home screen', () => {
     }
   })
 
+  test('opens and dismisses the required-folder project creation dialog', async () => {
+    const launched = await launchShell({ onboardingSeen: true, videoDir: 'project-create-modal' })
+    const { page } = launched
+    try {
+      await page.getByRole('button', { name: 'New project' }).click()
+      const dialog = page.getByRole('dialog', { name: 'Create project' })
+      await expect(dialog).toBeVisible()
+      await expect(dialog.getByRole('button', { name: 'Create project' })).toBeDisabled()
+      await dialog.getByLabel('Project name').fill('Quarterly planning')
+      await expect(dialog.getByRole('button', { name: 'Create project' })).toBeDisabled()
+      await page.keyboard.press('Escape')
+      await expect(dialog).toBeHidden()
+    } finally {
+      await closeAndSaveVideo(launched, 'project-create-modal')
+    }
+  })
+
   test('renders localized UI when GENOFFICE_LANG=zh-CN', async () => {
     const launched = await launchShell({
       onboardingSeen: true,

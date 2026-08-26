@@ -1229,6 +1229,17 @@ body.vib .home {
   color: #fff;
 }
 
+.btn-primary {
+  border: none;
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -1286,6 +1297,54 @@ body.vib .home {
   justify-content: flex-end;
   gap: 12px;
   margin-top: 24px;
+}
+
+.project-create-modal {
+  width: min(480px, 90vw);
+}
+
+.project-create-field {
+  display: grid;
+  gap: 7px;
+  margin-top: 18px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.project-folder-picker {
+  display: flex;
+  gap: 10px;
+}
+
+.project-folder-picker output {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-folder-picker output.selected {
+  color: var(--text);
+}
+
+.project-folder-picker .btn {
+  flex-shrink: 0;
+  padding: 7px 10px;
+  font-size: 14px;
+}
+
+.project-create-error {
+  margin-top: 12px !important;
+  color: var(--color-error);
 }
 
 /* ── Project sidebar (P1) ─────────────────────────────── */

@@ -136,8 +136,10 @@ export interface ProjectHomeApi {
   listProjects(): Promise<ProjectSummaryEntry[]>
   /** list existing files currently belonging to a project */
   listFiles(projectId: string): Promise<string[]>
-  /** create a project */
-  createProject(name: string): Promise<ProjectSummaryEntry>
+  /** Opens the native directory picker used by the new-project dialog. */
+  chooseProjectFolder(): Promise<{ rootPath?: string }>
+  /** create a project, optionally with its AI context root already configured */
+  createProject(args: { name: string; rootPath?: string }): Promise<ProjectSummaryEntry>
   /** rename a project */
   renameProject(id: string, name: string): Promise<void>
   /** soft-delete a project */
@@ -179,6 +181,7 @@ export const PROJECT_CHANNELS = {
   list: 'project:list',
   files: 'project:files',
   create: 'project:create',
+  chooseFolder: 'project:chooseFolder',
   rename: 'project:rename',
   delete: 'project:delete',
   moveFile: 'project:moveFile',

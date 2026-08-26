@@ -616,6 +616,15 @@ describe('createProject', () => {
     expect(list.find((p) => p.id === proj.id)).toBeTruthy()
   })
 
+  it('persists a root path supplied during creation', () => {
+    const proj = store.createProject('Rooted Project', '/tmp/rooted-project')
+    expect(proj.rootPath).toBe('/tmp/rooted-project')
+    expect(store.getProject(proj.id)?.rootPath).toBe('/tmp/rooted-project')
+    expect(store.listProjectsSummary().find((item) => item.id === proj.id)?.rootPath).toBe(
+      '/tmp/rooted-project',
+    )
+  })
+
   it('throws on an empty name', () => {
     expect(() => store.createProject('   ')).toThrow()
   })

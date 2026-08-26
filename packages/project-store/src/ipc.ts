@@ -57,6 +57,8 @@ export interface RebindChatArgs {
 
 export interface CreateProjectArgs {
   name: string
+  /** Optional filesystem root selected from the native directory picker. */
+  rootPath?: string
 }
 
 export interface RenameProjectArgs {
@@ -140,6 +142,8 @@ export interface ProjectApi {
   listProjects(): Promise<ProjectSummary[]>
   /** Creates a project */
   createProject(args: CreateProjectArgs): Promise<ProjectSummary>
+  /** Opens the native directory picker before a project exists. */
+  chooseProjectFolder(): Promise<{ rootPath?: string }>
   /** Renames a project */
   renameProject(args: RenameProjectArgs): Promise<void>
   /** Soft-deletes a project (directory moved into .trash) */
