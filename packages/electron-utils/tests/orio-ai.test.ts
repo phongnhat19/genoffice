@@ -114,4 +114,54 @@ describe('OrioAiService', () => {
       globalThis.fetch = originalFetch
     }
   })
+
+  it('starts a fresh Cloud session after a streamed session error', async () => {
+    const { service: orio } = service({
+      version: 1,
+      status: 'connected',
+      credential: Buffer.from(
+        `encrypted:${JSON.stringify({
+          accessToken: 'access-token',
+          refreshToken: 'refresh-token',
+          expiresAt: Date.now() + 3_600_000,
+        })}`,
+      ).toString('base64'),
+    }, {
+      env: {
+        ORIO_AUTH_URL: 'http://auth.test/auth/v1',
+        ORIO_WEB_URL: 'http://orio.test',
+        ORIO_DESKTOP_OAUTH_CLIENT_ID: 'desktop-test-client',
+        ORIO_DESKTOP_OAUTH_REDIRECT_URI: 'http://127.0.0.1:1455/oauth/callback',
+      },
+    })
+    const originalFetch = globalThis.fetch
+    const endpoints: string[] = []
+    globalThis.fetch = (async (input) => {
+      endpoints.push(new URL(String(input)).pathname)
+      return new Response(
+        [
+          'data: {"type":"session","sessionId":"failed-cloud-session"}',
+          '',
+          'data: {"type":"error","error":"Provider failed"}',
+          '',
+        ].join('\n'),
+        { headers: { 'content-type': 'text/event-stream' } },
+      )
+    }) as typeof fetch
+    const request = {
+      requestId: 'request-1',
+      system: '',
+      messages: [{ role: 'user' as const, text: 'Retry this request' }],
+      remoteSurface: 'docs' as const,
+      remoteSessionId: 'local-session',
+    }
+    try {
+      await orio.stream(request, () => undefined, new AbortController().signal)
+      await orio.stream({ ...request, requestId: 'request-2' }, () => undefined, new AbortController().signal)
+
+      expect(endpoints).toEqual(['/api/v1/ai/agent/start', '/api/v1/ai/agent/start'])
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
 })
