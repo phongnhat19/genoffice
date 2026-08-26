@@ -37,6 +37,7 @@ import type {
   ProjectSummary,
   TimelineEntry,
   WorkspaceTask,
+  ProjectSyncState,
 } from './types.js'
 
 // ────────────────────────────────────────────────────────────
@@ -476,6 +477,53 @@ export class ProjectStore {
    */
   getProject(projectId: string): ProjectData | null {
     return this.readProject(projectId)
+  }
+
+  /** Read local-only sync state. Keeping this on project.json makes retries survive restarts. */
+  getProjectSyncState(projectId: string): ProjectSyncState {
+    return this.readProject(projectId)?.sync ?? {}
+  }
+
+  setProjectSyncState(projectId: string, patch: Partial<ProjectSyncState>): ProjectSyncState {
+    const project = this.readProject(projectId)
+    if (!project) throw new Error('Project not found.')
+    const sync = { ...(project.sync ?? {}), ...patch }
+    project.sync = sync
+    project.updatedAt = nowIso()
+    this.writeProject(project)
+    return sync
+  }
+
+  /** Local metadata files safe to replicate. project.json is sanitized by the sync service. */
+  projectMetadataPaths(projectId: string): string[] {
+    const dir = this.projectDir(projectId)
+    if (!existsSync(dir)) return []
+    const paths: string[] = []
+    for (const relative of ['project.json', 'chats', 'workspace-tasks']) {
+      const full = join(dir, relative)
+      if (!existsSync(full)) continue
+      if (relative === 'project.json') paths.push(full)
+      else {
+        for (const entry of readdirSync(full)) {
+          const candidate = join(full, entry)
+          try { if (statSync(candidate).isFile()) paths.push(candidate) } catch { /* ignore */ }
+        }
+      }
+    }
+    return paths
+  }
+
+  /** Writes a portable cloud project record while retaining this device's chosen root. */
+  importPortableProject(projectId: string, name: string, rootPath: string | undefined, metadata: { chats?: Record<string, string>; tasks?: Record<string, string> }) {
+    const existing = this.readProject(projectId)
+    const now = nowIso()
+    const project: ProjectData = { id: projectId, name, createdAt: existing?.createdAt ?? now, updatedAt: now, files: existing?.files ?? [], ...(rootPath ? { rootPath } : {}), sync: existing?.sync }
+    ensureDir(this.projectDir(projectId)); this.writeProject(project)
+    const index = this.readIndex()
+    if (!index.projects.some((item) => item.id === projectId)) { index.projects.push({ id: projectId, name, createdAt: project.createdAt, updatedAt: now }); this.writeIndex(index) }
+    for (const [chatId, body] of Object.entries(metadata.chats ?? {})) { ensureDir(this.chatsDir(projectId)); writeFileSync(this.chatPath(projectId, chatId), body, 'utf8') }
+    for (const [taskId, body] of Object.entries(metadata.tasks ?? {})) { ensureDir(this.tasksDir(projectId)); writeFileSync(this.taskPath(projectId, taskId), body, 'utf8') }
+    return project
   }
 
   /**

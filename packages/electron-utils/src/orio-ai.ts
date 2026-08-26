@@ -338,6 +338,21 @@ export class OrioAiService {
     }
     return response
   }
+  /** Authenticated desktop request for first-party ORIO services (for example project sync). */
+  async cloudRequest(path: string, init: { method?: 'GET' | 'POST' | 'DELETE'; body?: unknown; signal?: AbortSignal } = {}) {
+    const config = this.config()
+    const response = await fetch(`${config.appUrl}${path}`, {
+      method: init.method ?? 'POST', ...(init.signal ? { signal: init.signal } : {}),
+      headers: { authorization: `Bearer ${await this.token()}`, ...(init.body === undefined ? {} : { 'content-type': 'application/json' }) },
+      ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
+    })
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null) as { error?: { message?: string } } | null
+      if ([401, 403].includes(response.status)) this.write({ version: 1, status: 'expired' })
+      throw new Error(detail?.error?.message ?? 'ORIO cloud request failed.')
+    }
+    return response
+  }
   async chat(request: {
     requestId: string
     system: string

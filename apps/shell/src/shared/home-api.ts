@@ -150,7 +150,16 @@ export interface ProjectHomeApi {
   getTimeline(projectId: string, limit?: number): Promise<TimelineEntryItem[]>
   /** Opens the native directory picker and persists this project's AI context root. */
   setProjectRoot(projectId: string): Promise<{ rootPath?: string; available: boolean }>
+  getSyncStatus(projectId: string): Promise<ProjectSyncStatusEntry>
+  syncNow(projectId: string): Promise<ProjectSyncStatusEntry | undefined>
+  setAutoSync(projectId: string, enabled: boolean): Promise<ProjectSyncStatusEntry | undefined>
+  listCloudProjects(): Promise<CloudProjectEntry[]>
+  importCloudProject(projectId: string): Promise<ProjectSyncStatusEntry | undefined>
+  resolveConflict(projectId: string, path: string, choice: 'local' | 'cloud' | 'both'): Promise<ProjectSyncStatusEntry | undefined>
+  deleteCloudProject(projectId: string): Promise<void>
 }
+export interface ProjectSyncStatusEntry { available: boolean; status?: 'idle' | 'syncing' | 'error' | 'conflict' | 'offline'; lastSyncedAt?: string; autoSync?: boolean; conflicts?: Array<{ path: string }>; error?: string }
+export interface CloudProjectEntry { id: string; name: string; revision: number; byteSize: number; updatedAt: string }
 
 export const HOME_CHANNELS = {
   recents: 'home:recents',
@@ -187,4 +196,11 @@ export const PROJECT_CHANNELS = {
   moveFile: 'project:moveFile',
   timeline: 'project:timeline',
   setRoot: 'project:setRoot',
+  syncStatus: 'project:syncStatus',
+  syncNow: 'project:syncNow',
+  setAutoSync: 'project:setAutoSync',
+  listCloud: 'project:listCloud',
+  importCloud: 'project:importCloud',
+  resolveConflict: 'project:resolveConflict',
+  deleteCloud: 'project:deleteCloud',
 } as const

@@ -108,7 +108,8 @@ import {
   setPdfSaveAsInFlight,
 } from '../../../pdf/src/main/pdf-main'
 import type { RecentEntry, RecentPage, RenameResult } from '../shared/home-api'
-import { HOME_CHANNELS } from '../shared/home-api'
+import { HOME_CHANNELS, PROJECT_CHANNELS } from '../shared/home-api'
+import { ProjectSyncService } from './project-sync'
 import type { TabKind } from '../shared/tabs-api'
 import { TABS_CHANNELS } from '../shared/tabs-api'
 import { normalizeRecentQuery, pageRecentPaths, statExistingPaths } from './recent-files'
@@ -904,6 +905,7 @@ const tm = (key: Parameters<typeof tMain>[1], params?: Parameters<typeof tMain>[
 let shellWindow: BrowserWindow | null = null
 let tabManager: TabManager | null = null
 let workspaceBroker: WorkspaceBroker | null = null
+let projectSync: ProjectSyncService | null = null
 
 /**
  * When the user creates a file from a specific project view, remember which
@@ -997,18 +999,32 @@ function createShellWindow(): void {
           : tm('untitledSheet'),
   )
   tabManager = manager
-  workspaceBroker = new WorkspaceBroker({
-    store: new ProjectStore(app.getPath('userData')),
-    ai: new OrioAiService({
+  const projectStore = new ProjectStore(app.getPath('userData'))
+  const orioAi = new OrioAiService({
       path: () => join(app.getPath('userData'), 'ai-settings.json'),
       safeStorage,
       openExternal: (url) => shell.openExternal(url),
-    }),
+    })
+  projectSync = new ProjectSyncService(projectStore, orioAi)
+  workspaceBroker = new WorkspaceBroker({
+    store: projectStore,
+    ai: orioAi,
     openPath: (path) => openDocumentPath(path),
     onTaskChanged: (task) => {
       if (!win.isDestroyed()) win.webContents.send(WORKSPACE_CHANNELS.changed, task)
     },
   })
+  ipcMain.handle(PROJECT_CHANNELS.syncStatus, (_event, projectId: string) => projectSync?.status(projectId) ?? { available: false, status: 'offline' })
+  ipcMain.handle(PROJECT_CHANNELS.syncNow, (_event, projectId: string) => projectSync?.syncNow(projectId))
+  ipcMain.handle(PROJECT_CHANNELS.setAutoSync, (_event, args: { projectId: string; enabled: boolean }) => projectSync?.setAutoSync(args.projectId, args.enabled))
+  ipcMain.handle(PROJECT_CHANNELS.listCloud, () => projectSync?.listCloudProjects() ?? [])
+  ipcMain.handle(PROJECT_CHANNELS.importCloud, async (_event, projectId: string) => {
+    if (!projectSync || !shellWindow) return undefined
+    const chosen = await dialog.showOpenDialog(shellWindow, { title: 'Choose folder for cloud project', properties: ['openDirectory', 'createDirectory'] })
+    return chosen.canceled || !chosen.filePaths[0] ? undefined : projectSync.importCloudProject(projectId, chosen.filePaths[0])
+  })
+  ipcMain.handle(PROJECT_CHANNELS.resolveConflict, (_event, args: { projectId: string; path: string; choice: 'local' | 'cloud' | 'both' }) => projectSync?.resolveConflict(args.projectId, args.path, args.choice))
+  ipcMain.handle(PROJECT_CHANNELS.deleteCloud, (_event, projectId: string) => projectSync?.deleteCloudProject(projectId))
 
   // pushRecent-triggered docs menu rebuilds must not clobber the active tab's menu
   setDocsMenuGate(() => manager.list().some((t) => t.active && t.kind === 'docs'))

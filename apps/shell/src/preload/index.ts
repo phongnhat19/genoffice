@@ -180,6 +180,13 @@ const projectApi: ProjectHomeApi = {
       available: boolean
     }
   },
+  async getSyncStatus(projectId) { return (await ipcRenderer.invoke(PROJECT_CHANNELS.syncStatus, projectId)) as import('../shared/home-api').ProjectSyncStatusEntry },
+  async syncNow(projectId) { return (await ipcRenderer.invoke(PROJECT_CHANNELS.syncNow, projectId)) as import('../shared/home-api').ProjectSyncStatusEntry | undefined },
+  async setAutoSync(projectId, enabled) { return (await ipcRenderer.invoke(PROJECT_CHANNELS.setAutoSync, { projectId, enabled })) as import('../shared/home-api').ProjectSyncStatusEntry | undefined },
+  async listCloudProjects() { const value = await ipcRenderer.invoke(PROJECT_CHANNELS.listCloud); return Array.isArray(value) ? value as import('../shared/home-api').CloudProjectEntry[] : [] },
+  async importCloudProject(projectId) { return (await ipcRenderer.invoke(PROJECT_CHANNELS.importCloud, projectId)) as import('../shared/home-api').ProjectSyncStatusEntry | undefined },
+  async resolveConflict(projectId, path, choice) { return (await ipcRenderer.invoke(PROJECT_CHANNELS.resolveConflict, { projectId, path, choice })) as import('../shared/home-api').ProjectSyncStatusEntry | undefined },
+  async deleteCloudProject(projectId) { await ipcRenderer.invoke(PROJECT_CHANNELS.deleteCloud, projectId) },
 }
 
 contextBridge.exposeInMainWorld('aiOfficeProject', projectApi)

@@ -68,7 +68,27 @@ export interface ProjectData extends ProjectInfo {
   files: string[]
   /** Optional filesystem root used by AI @file mentions. */
   rootPath?: string
+  /** Local-only cloud synchronization cursor. Never included in the cloud manifest. */
+  sync?: ProjectSyncState
 }
+
+export type ProjectSyncStatus = 'idle' | 'syncing' | 'error' | 'conflict' | 'offline'
+export interface ProjectSyncConflict { path: string; localChecksum?: string; cloudChecksum?: string; detectedAt: string }
+export interface ProjectSyncState {
+  cloudRevision?: number
+  lastSyncedChecksums?: Record<string, string>
+  autoSync?: boolean
+  status?: ProjectSyncStatus
+  lastSyncedAt?: string
+  pendingUploads?: string[]
+  pendingDownloads?: string[]
+  conflicts?: ProjectSyncConflict[]
+  error?: string
+}
+
+export interface CloudProjectManifestEntry { path: string; checksum: string; size: number; kind: 'file' | 'metadata' }
+export interface CloudProjectManifest { version: 1; projectId: string; name: string; revision: number; createdAt: string; updatedAt: string; entries: CloudProjectManifestEntry[] }
+export interface CloudProjectSummary { id: string; name: string; revision: number; byteSize: number; updatedAt: string }
 
 export interface ProjectIndex {
   projects: ProjectInfo[]
