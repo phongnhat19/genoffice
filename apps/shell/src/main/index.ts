@@ -1001,10 +1001,10 @@ function createShellWindow(): void {
   tabManager = manager
   const projectStore = new ProjectStore(app.getPath('userData'))
   const orioAi = new OrioAiService({
-      path: () => join(app.getPath('userData'), 'ai-settings.json'),
-      safeStorage,
-      openExternal: (url) => shell.openExternal(url),
-    })
+    path: () => join(app.getPath('userData'), 'ai-settings.json'),
+    safeStorage,
+    openExternal: (url) => shell.openExternal(url),
+  })
   projectSync = new ProjectSyncService(projectStore, orioAi)
   workspaceBroker = new WorkspaceBroker({
     store: projectStore,
@@ -1014,18 +1014,42 @@ function createShellWindow(): void {
       if (!win.isDestroyed()) win.webContents.send(WORKSPACE_CHANNELS.changed, task)
     },
   })
-  ipcMain.handle(PROJECT_CHANNELS.syncStatus, (_event, projectId: string) => projectSync?.status(projectId) ?? { available: false, status: 'offline' })
-  ipcMain.handle(PROJECT_CHANNELS.syncNow, (_event, projectId: string) => projectSync?.syncNow(projectId))
-  ipcMain.handle(PROJECT_CHANNELS.setAutoSync, (_event, args: { projectId: string; enabled: boolean }) => projectSync?.setAutoSync(args.projectId, args.enabled))
+  ipcMain.handle(
+    PROJECT_CHANNELS.syncStatus,
+    (_event, projectId: string) =>
+      projectSync?.status(projectId) ?? { available: false, status: 'offline' },
+  )
+  ipcMain.handle(PROJECT_CHANNELS.syncNow, (_event, projectId: string) =>
+    projectSync?.syncNow(projectId),
+  )
+  ipcMain.handle(
+    PROJECT_CHANNELS.setAutoSync,
+    (_event, args: { projectId: string; enabled: boolean }) =>
+      projectSync?.setAutoSync(args.projectId, args.enabled),
+  )
   ipcMain.handle(PROJECT_CHANNELS.listCloud, () => projectSync?.listCloudProjects() ?? [])
   ipcMain.handle(PROJECT_CHANNELS.importCloud, async (_event, projectId: string) => {
     if (!projectSync || !shellWindow) return undefined
-    const chosen = await dialog.showOpenDialog(shellWindow, { title: 'Choose folder for cloud project', properties: ['openDirectory', 'createDirectory'] })
-    return chosen.canceled || !chosen.filePaths[0] ? undefined : projectSync.importCloudProject(projectId, chosen.filePaths[0])
+    const chosen = await dialog.showOpenDialog(shellWindow, {
+      title: 'Choose folder for cloud project',
+      properties: ['openDirectory', 'createDirectory'],
+    })
+    return chosen.canceled || !chosen.filePaths[0]
+      ? undefined
+      : projectSync.importCloudProject(projectId, chosen.filePaths[0])
   })
-  ipcMain.handle(PROJECT_CHANNELS.resolveConflict, (_event, args: { projectId: string; path: string; choice: 'local' | 'cloud' | 'both' }) => projectSync?.resolveConflict(args.projectId, args.path, args.choice))
-  ipcMain.handle(PROJECT_CHANNELS.deleteCloud, (_event, projectId: string) => projectSync?.deleteCloudProject(projectId))
-  ipcMain.handle(PROJECT_CHANNELS.cloudAuthorized, () => projectSync?.authorizationStatus() ?? false)
+  ipcMain.handle(
+    PROJECT_CHANNELS.resolveConflict,
+    (_event, args: { projectId: string; path: string; choice: 'local' | 'cloud' | 'both' }) =>
+      projectSync?.resolveConflict(args.projectId, args.path, args.choice),
+  )
+  ipcMain.handle(PROJECT_CHANNELS.deleteCloud, (_event, projectId: string) =>
+    projectSync?.deleteCloudProject(projectId),
+  )
+  ipcMain.handle(
+    PROJECT_CHANNELS.cloudAuthorized,
+    () => projectSync?.authorizationStatus() ?? false,
+  )
   ipcMain.handle(PROJECT_CHANNELS.cloudAuthorize, () => projectSync?.authorize())
 
   // pushRecent-triggered docs menu rebuilds must not clobber the active tab's menu
@@ -1240,9 +1264,9 @@ function surfaceNewTabError(err: unknown): void {
   dialog.showErrorBox(tm('errNewTabFailed'), err instanceof Error ? err.message : String(err))
 }
 
-function newDocTab(): void {
+function newDocTab(saveDir?: string): void {
   try {
-    tabManager?.openDocsTab(undefined, { newBlank: true })
+    tabManager?.openDocsTab(undefined, { newBlank: true, saveDir })
   } catch (err) {
     surfaceNewTabError(err)
   }
@@ -1333,10 +1357,11 @@ function registerHomeIpc(): void {
   })
 
   ipcMain.handle(HOME_CHANNELS.newDoc, (_event, opts?: { projectId?: string }) => {
+    const project = opts?.projectId ? projectStore.getProject(opts.projectId) : null
     if (opts?.projectId && opts.projectId !== 'default') {
       pendingNewFileProject.set('doc', opts.projectId)
     }
-    newDocTab()
+    newDocTab(project?.rootPath)
   })
 
   ipcMain.handle(HOME_CHANNELS.newSheet, (_event, opts?: { projectId?: string }) => {

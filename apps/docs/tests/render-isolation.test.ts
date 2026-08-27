@@ -264,6 +264,21 @@ function ribbonProps(editor: Editor, formatState: RibbonFormatState) {
 }
 
 describe('Ribbon render isolation', () => {
+  it('keeps ORIO Agent as the only AI action in the Home ribbon', () => {
+    const editor = makeEditor()
+    const { root, container } = mount(
+      createElement(Ribbon, { ...ribbonProps(editor, computeFormatState(editor)) }),
+    )
+
+    expect(container.textContent).toContain('ORIO agent')
+    expect(container.textContent).not.toContain('AI Summarize')
+    expect(container.textContent).not.toContain('AI Polish')
+    expect(container.textContent).not.toContain('AI Format')
+
+    act(() => root.unmount())
+    editor.destroy()
+  })
+
   it('is wrapped in React.memo', () => {
     expect((Ribbon as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'))
   })

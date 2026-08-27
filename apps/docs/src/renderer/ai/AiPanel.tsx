@@ -81,18 +81,13 @@ interface ChatEntry {
   tools?: ToolActivity[]
 }
 
-/** clickable starter prompts for the empty state (fill the input, do not send) —
- * blank documents get generation starters, documents with content get edit starters */
+/** Clickable starter prompts fill the input without sending it. */
 const DRAFT_STARTER_PROMPTS: StringKey[] = [
   'aiStarterWeeklyReport',
   'aiStarterLaunchPost',
   'aiStarterEventOutline',
 ]
-const EDIT_STARTER_PROMPTS: StringKey[] = [
-  'aiStarterSummarize',
-  'aiStarterPolishAll',
-  'aiStarterContinue',
-]
+const EDIT_STARTER_PROMPTS: StringKey[] = ['aiStarterContinue']
 
 /** resizable panel width: persisted, clamped so neither pane collapses */
 const PANEL_WIDTH_KEY = 'docs-ai-panel-width'

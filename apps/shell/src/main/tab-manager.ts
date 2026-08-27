@@ -130,10 +130,10 @@ export class TabManager {
     this.activateTab(AGENT_ID)
   }
 
-  openDocsTab(openPath?: string, options?: { newBlank?: boolean }): string {
+  openDocsTab(openPath?: string, options?: { newBlank?: boolean; saveDir?: string }): string {
     const view = createDocsView(openPath)
     const id = `t${this.nextId++}`
-    if (options?.newBlank) markDocsNewBlank(view.webContents.id)
+    if (options?.newBlank) markDocsNewBlank(view.webContents.id, options.saveDir)
     this.shellWindow.contentView.addChildView(view)
     view.setVisible(false)
     this.trackHtmlFullScreen(id, view)

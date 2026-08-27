@@ -78,6 +78,16 @@ beforeAll(() => {
 })
 
 describe('AiPanel collapse', () => {
+  it('keeps only the Continue writing starter for documents with content', () => {
+    const editor = createEditor()
+    const { container, cleanup } = mount(createElement(AiPanel, panelProps(editor)))
+
+    expect(container.querySelectorAll('.ai-starter')).toHaveLength(1)
+
+    cleanup()
+    editor.destroy()
+  })
+
   it('keeps the draft input across a collapse/expand cycle', () => {
     const editor = createEditor()
     const { container, root, cleanup } = mount(createElement(AiPanel, panelProps(editor)))

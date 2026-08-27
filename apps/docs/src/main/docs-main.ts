@@ -1883,10 +1883,13 @@ let pendingOpenPath = findDocxPath(process.argv)
 const pendingWindowOpens = new Map<number, string>()
 /** webContents ids that should open as a new blank doc instead of the start screen */
 const pendingNewBlankIds = new Set<number>()
+/** optional project folders used by new documents for their first save and Save As */
+const pendingNewSaveDirs = new Map<number, string>()
 
 /** mark a docs webContents as "open blank on first consume" (called by the shell for home:new-doc) */
-export function markDocsNewBlank(wcId: number): void {
+export function markDocsNewBlank(wcId: number, saveDir?: string): void {
   pendingNewBlankIds.add(wcId)
+  if (saveDir) pendingNewSaveDirs.set(wcId, saveDir)
 }
 
 /** the single real BrowserWindow hosting the tab strip, used as dialog parent in tab mode */
@@ -2137,6 +2140,7 @@ function dropDocWriter(wcId: number): void {
   docWritablePaths.delete(wcId)
   pdfWritablePaths.delete(wcId)
   docDiskStates.delete(wcId)
+  pendingNewSaveDirs.delete(wcId)
   // Destroyed renderers count as torn down too: window-close paths never run
   // teardownDocsRenderer, but an in-flight save handler resuming after the
   // destruction must still fail its re-check (wcIds are never reused, so the
@@ -2191,6 +2195,7 @@ export function teardownDocsRenderer(contents: WebContents): void {
   docWritablePaths.delete(contents.id)
   pdfWritablePaths.delete(contents.id)
   docDiskStates.delete(contents.id)
+  pendingNewSaveDirs.delete(contents.id)
   if (!contents.isDestroyed()) contents.send('docs:teardown')
 }
 
@@ -3027,9 +3032,10 @@ export function registerDocsIpc(): void {
   ipcMain.handle('docs:save-as', async (event, defaultName: string, data: ArrayBuffer) => {
     // an orphaned (closed-tab) renderer must not open dialogs or land new files
     if (tornDownWcIds.has(event.sender.id)) return { ok: false }
+    const saveDir = pendingNewSaveDirs.get(event.sender.id)
     const result = await saveDialog(event, {
       title: tm('dlgSaveAs'),
-      defaultPath: defaultName,
+      defaultPath: saveDir ? join(saveDir, defaultName) : defaultName,
       filters: [{ name: tm('filterWord'), extensions: ['docx'] }],
     })
     if (result.canceled || !result.filePath) return { ok: false }
@@ -3041,6 +3047,7 @@ export function registerDocsIpc(): void {
       await atomicWriteFile(result.filePath, bytes)
       allowDocWrite(event.sender.id, result.filePath)
       await rememberDiskState(event.sender.id, result.filePath, bytes)
+      pendingNewSaveDirs.delete(event.sender.id)
       pushRecent(result.filePath)
       notifyFileSaved(event.sender, result.filePath)
       return { ok: true, path: result.filePath }
@@ -3052,9 +3059,12 @@ export function registerDocsIpc(): void {
   ipcMain.handle('docs:save-new', async (event, defaultName: string, data: ArrayBuffer) => {
     try {
       // a discarded draft in an orphaned renderer must not silently persist
-      // itself to the default folder after the user chose Don't Save
+      // itself to its configured save folder after the user chose Don't Save
       if (tornDownWcIds.has(event.sender.id)) return { ok: false }
-      const filePath = uniquePathIn(defaultSaveDir(), defaultName)
+      const filePath = uniquePathIn(
+        pendingNewSaveDirs.get(event.sender.id) ?? defaultSaveDir(),
+        defaultName,
+      )
       const bytes = Buffer.from(data)
       await atomicWriteFile(filePath, bytes)
       // teardown may have happened while the write was in flight — the path is
@@ -3065,6 +3075,7 @@ export function registerDocsIpc(): void {
       }
       allowDocWrite(event.sender.id, filePath)
       await rememberDiskState(event.sender.id, filePath, bytes)
+      pendingNewSaveDirs.delete(event.sender.id)
       pushRecent(filePath)
       notifyFileSaved(event.sender, filePath)
       return { ok: true, path: filePath }
@@ -3305,7 +3316,7 @@ export function registerDocsIpc(): void {
 /** hooks injected by the shell in tab mode; standalone mode leaves these unset
  * and falls back to real multi-BrowserWindow behavior. */
 interface DocsShellHooks {
-  openTab(openPath?: string, options?: { newBlank?: boolean }): void
+  openTab(openPath?: string, options?: { newBlank?: boolean; saveDir?: string }): void
   listTabs(): DocsTabInfo[]
   focusTab(id: string): void
   /** closes the calling tab instead of the whole shell window (Cmd+W / role:'close') */

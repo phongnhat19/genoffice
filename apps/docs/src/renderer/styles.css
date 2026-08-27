@@ -945,23 +945,6 @@ button {
 }
 
 /* line spacing dropdown */
-/* Home-tab Genspark AI entry: black circular "+" badge with a dropdown caret,
-   brand label below (mirrors the sheets Home ribbon). */
-/* AI feature buttons next to the entry: purple glyphs, label below */
-.ai-feature-icon {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  color: #0f7fff;
-}
-
-.ai-feature-icon svg {
-  /* 24px renders the 24-unit viewBox 1:1, so the 1.5 stroke paints 1.5px,
-     keeping the 1:16 stroke standard */
-  width: 24px;
-  height: 24px;
-}
 
 .spacing-menu {
   position: fixed;
