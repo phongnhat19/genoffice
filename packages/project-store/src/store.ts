@@ -18,9 +18,11 @@
 import { createHash } from 'node:crypto'
 import {
   appendFileSync,
+  copyFileSync,
   existsSync,
   mkdirSync,
   readFileSync,
+  realpathSync,
   renameSync,
   statSync,
   unlinkSync,
@@ -506,7 +508,11 @@ export class ProjectStore {
       else {
         for (const entry of readdirSync(full)) {
           const candidate = join(full, entry)
-          try { if (statSync(candidate).isFile()) paths.push(candidate) } catch { /* ignore */ }
+          try {
+            if (statSync(candidate).isFile()) paths.push(candidate)
+          } catch {
+            /* ignore */
+          }
         }
       }
     }
@@ -514,15 +520,38 @@ export class ProjectStore {
   }
 
   /** Writes a portable cloud project record while retaining this device's chosen root. */
-  importPortableProject(projectId: string, name: string, rootPath: string | undefined, metadata: { chats?: Record<string, string>; tasks?: Record<string, string> }) {
+  importPortableProject(
+    projectId: string,
+    name: string,
+    rootPath: string | undefined,
+    metadata: { chats?: Record<string, string>; tasks?: Record<string, string> },
+  ) {
     const existing = this.readProject(projectId)
     const now = nowIso()
-    const project: ProjectData = { id: projectId, name, createdAt: existing?.createdAt ?? now, updatedAt: now, files: existing?.files ?? [], ...(rootPath ? { rootPath } : {}), sync: existing?.sync }
-    ensureDir(this.projectDir(projectId)); this.writeProject(project)
+    const project: ProjectData = {
+      id: projectId,
+      name,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+      files: existing?.files ?? [],
+      ...(rootPath ? { rootPath } : {}),
+      sync: existing?.sync,
+    }
+    ensureDir(this.projectDir(projectId))
+    this.writeProject(project)
     const index = this.readIndex()
-    if (!index.projects.some((item) => item.id === projectId)) { index.projects.push({ id: projectId, name, createdAt: project.createdAt, updatedAt: now }); this.writeIndex(index) }
-    for (const [chatId, body] of Object.entries(metadata.chats ?? {})) { ensureDir(this.chatsDir(projectId)); writeFileSync(this.chatPath(projectId, chatId), body, 'utf8') }
-    for (const [taskId, body] of Object.entries(metadata.tasks ?? {})) { ensureDir(this.tasksDir(projectId)); writeFileSync(this.taskPath(projectId, taskId), body, 'utf8') }
+    if (!index.projects.some((item) => item.id === projectId)) {
+      index.projects.push({ id: projectId, name, createdAt: project.createdAt, updatedAt: now })
+      this.writeIndex(index)
+    }
+    for (const [chatId, body] of Object.entries(metadata.chats ?? {})) {
+      ensureDir(this.chatsDir(projectId))
+      writeFileSync(this.chatPath(projectId, chatId), body, 'utf8')
+    }
+    for (const [taskId, body] of Object.entries(metadata.tasks ?? {})) {
+      ensureDir(this.tasksDir(projectId))
+      writeFileSync(this.taskPath(projectId, taskId), body, 'utf8')
+    }
     return project
   }
 
@@ -691,41 +720,81 @@ export class ProjectStore {
   }
 
   /**
-   * Moves a file from its current project into a target project:
-   * 1. Update fileMap
-   * 2. Update the files lists in both project.json files
-   * 3. Move the corresponding chat's jsonl file to the new project directory
+   * Moves a file from its current project into a target project. When the
+   * project has a configured root folder, the document itself is moved there
+   * first. The returned path is the document's resulting location.
    */
-  moveFileToProject(filePath: string, targetProjectId: string): void {
+  moveFileToProject(filePath: string, targetProjectId: string): string {
     this.ensureDefaultProject()
-    const index = this.readIndex()
-    const fromProjectId = index.fileMap[filePath] ?? 'default'
-
-    if (fromProjectId === targetProjectId) return // nothing to move
 
     // The target project must exist
-    const targetProj = this.readProject(targetProjectId)
+    let targetProj = this.readProject(targetProjectId)
     if (!targetProj) throw new Error(`Target project does not exist: ${targetProjectId}`)
 
+    let movedPath = filePath
+    // A root is optional for backwards-compatible metadata-only projects.
+    // If the document is still on disk, move it into the root without
+    // overwriting an existing same-named document.
+    if (targetProj.rootPath && existsSync(filePath)) {
+      let root: string
+      try {
+        root = realpathSync(targetProj.rootPath)
+        if (!statSync(root).isDirectory()) throw new Error('not a directory')
+      } catch {
+        throw new Error(`Project folder is unavailable: ${targetProj.rootPath}`)
+      }
+
+      const destination = join(root, basename(filePath))
+      if (destination !== filePath) {
+        if (existsSync(destination)) {
+          throw new Error(
+            `A file with the same name already exists in the project folder: ${basename(filePath)}`,
+          )
+        }
+        try {
+          renameSync(filePath, destination)
+        } catch (err) {
+          // renameSync cannot cross filesystem boundaries (for example, C: → D:).
+          // Copying and then deleting preserves move semantics in that case.
+          if ((err as NodeJS.ErrnoException).code !== 'EXDEV') throw err
+          copyFileSync(filePath, destination)
+          try {
+            unlinkSync(filePath)
+          } catch (unlinkErr) {
+            unlinkSync(destination)
+            throw unlinkErr
+          }
+        }
+        this.fileRenamed(filePath, destination)
+        movedPath = destination
+        targetProj = this.readProject(targetProjectId)!
+      }
+    }
+
+    const index = this.readIndex()
+    const fromProjectId = index.fileMap[movedPath] ?? 'default'
+
+    if (fromProjectId === targetProjectId) return movedPath // nothing else to move
+
     // 1. Update fileMap
-    index.fileMap[filePath] = targetProjectId
+    index.fileMap[movedPath] = targetProjectId
     this.writeIndex(index)
 
     // 2. Update fromProject.files
     const fromProj = this.readProject(fromProjectId)
     if (fromProj) {
-      fromProj.files = fromProj.files.filter((f) => f !== filePath)
+      fromProj.files = fromProj.files.filter((f) => f !== movedPath)
       fromProj.updatedAt = nowIso()
       this.writeProject(fromProj)
     }
 
     // 3. Update targetProject.files
-    if (!targetProj.files.includes(filePath)) targetProj.files.push(filePath)
+    if (!targetProj.files.includes(movedPath)) targetProj.files.push(movedPath)
     targetProj.updatedAt = nowIso()
     this.writeProject(targetProj)
 
     // 4. Move the corresponding chat's JSONL (materialize buffered opening messages first)
-    const chatId = this.chatIdForPath(filePath)
+    const chatId = this.chatIdForPath(movedPath)
     this.flushPending(fromProjectId, chatId)
     const srcChatPath = this.chatPath(fromProjectId, chatId)
     const dstChatPath = this.chatPath(targetProjectId, chatId)
@@ -744,6 +813,7 @@ export class ProjectStore {
     const cur = this.seqCounters.get(oldKey)
     this.seqCounters.delete(oldKey)
     if (cur !== undefined) this.seqCounters.set(newKey, cur)
+    return movedPath
   }
 
   /**

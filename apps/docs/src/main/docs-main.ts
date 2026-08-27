@@ -2569,9 +2569,17 @@ function getProjectStore(): ProjectStore {
  * same contract as the sheets/slides opened hooks. Never called standalone.
  */
 let fileSavedHook: ((wc: WebContents, filePath: string) => void) | null = null
+let projectFileMovedHook: ((oldPath: string, newPath: string) => void) | null = null
 
 export function setDocsFileSavedHook(hook: (wc: WebContents, filePath: string) => void): void {
   fileSavedHook = hook
+}
+
+/** Lets the shell update open tabs and recents after a project-root file move. */
+export function setProjectFileMovedHook(
+  hook: ((oldPath: string, newPath: string) => void) | null,
+): void {
+  projectFileMovedHook = hook
 }
 
 function notifyFileSaved(wc: WebContents, filePath: string): void {
@@ -2756,9 +2764,11 @@ export function registerProjectIpc(): void {
     getProjectStore().deleteProject(args.id)
   })
 
-  /** Move a file into the given project */
+  /** Move a file into the given project (and its configured root folder, if any). */
   ipcMain.handle('project:moveFile', (_event, args: { filePath: string; projectId: string }) => {
-    getProjectStore().moveFileToProject(args.filePath, args.projectId)
+    const movedPath = getProjectStore().moveFileToProject(args.filePath, args.projectId)
+    if (movedPath !== args.filePath) projectFileMovedHook?.(args.filePath, movedPath)
+    return movedPath
   })
 
   /** Get the project timeline */

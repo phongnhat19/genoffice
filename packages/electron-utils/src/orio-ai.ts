@@ -282,6 +282,15 @@ export class OrioAiService {
     this.write(this.empty())
     return this.view()
   }
+  /** Refresh an expiring credential now, without making an AI request. */
+  async ensureAuthorized(): Promise<boolean> {
+    try {
+      await this.token()
+      return true
+    } catch {
+      return false
+    }
+  }
   private async token(): Promise<string> {
     const store = this.read()
     const credential = this.decrypt(store)
@@ -339,17 +348,30 @@ export class OrioAiService {
     return response
   }
   /** Authenticated desktop request for first-party ORIO services (for example project sync). */
-  async cloudRequest(path: string, init: { method?: 'GET' | 'POST' | 'DELETE'; body?: unknown; signal?: AbortSignal } = {}) {
+  async cloudRequest(
+    path: string,
+    init: { method?: 'GET' | 'POST' | 'DELETE'; body?: unknown; signal?: AbortSignal } = {},
+  ) {
     const config = this.config()
     const response = await fetch(`${config.appUrl}${path}`, {
-      method: init.method ?? 'POST', ...(init.signal ? { signal: init.signal } : {}),
-      headers: { authorization: `Bearer ${await this.token()}`, ...(init.body === undefined ? {} : { 'content-type': 'application/json' }) },
+      method: init.method ?? 'POST',
+      ...(init.signal ? { signal: init.signal } : {}),
+      headers: {
+        authorization: `Bearer ${await this.token()}`,
+        ...(init.body === undefined ? {} : { 'content-type': 'application/json' }),
+      },
       ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
     })
     if (!response.ok) {
-      const detail = await response.json().catch(() => null) as { error?: { message?: string } } | null
+      const detail = (await response.json().catch(() => null)) as {
+        error?: { message?: string }
+      } | null
       if ([401, 403].includes(response.status)) this.write({ version: 1, status: 'expired' })
-      throw new Error(detail?.error?.message ?? 'ORIO cloud request failed.')
+      const error = new Error(detail?.error?.message ?? 'ORIO cloud request failed.') as Error & {
+        status?: number
+      }
+      error.status = response.status
+      throw error
     }
     return response
   }
@@ -435,7 +457,8 @@ export class OrioAiService {
               this.remoteSessions.set(request.remoteSessionId!, chunk.sessionId)
               continue
             }
-            if (remote && chunk.type === 'error') this.remoteSessions.delete(request.remoteSessionId!)
+            if (remote && chunk.type === 'error')
+              this.remoteSessions.delete(request.remoteSessionId!)
             onChunk({ ...chunk, requestId: request.requestId } as AiStreamChunk)
           } catch {
             /* ignore malformed keepalive */

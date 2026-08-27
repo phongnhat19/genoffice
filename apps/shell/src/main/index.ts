@@ -66,6 +66,7 @@ import {
   projectFileRenamed,
   setDocsShellWindow,
   setDocsFileSavedHook,
+  setProjectFileMovedHook,
   setSessionPathResolver,
   uniquePathIn,
 } from '../../../docs/src/main/docs-main'
@@ -1006,6 +1007,8 @@ function createShellWindow(): void {
     openExternal: (url) => shell.openExternal(url),
   })
   projectSync = new ProjectSyncService(projectStore, orioAi)
+  // Refresh an expiring credential and verify project-sync permission during startup.
+  void projectSync.refreshAuthorization()
   workspaceBroker = new WorkspaceBroker({
     store: projectStore,
     ai: orioAi,
@@ -1087,6 +1090,16 @@ function createShellWindow(): void {
     manager.setTabFileFor(wc.id, path)
     recordRecentFile(path)
     applyPendingProject(path)
+  })
+  setProjectFileMovedHook((oldPath, newPath) => {
+    replaceRecentFile(oldPath, newPath)
+    if (/\.pptx$/i.test(newPath)) void replaceSlidesRecentFile(oldPath, newPath)
+    const affected = manager.renameTabFile(oldPath, newPath)
+    for (const tab of affected) {
+      if (tab.kind === 'slides') slidesFileRenamed(tab.webContents, oldPath, newPath)
+      else if (tab.kind === 'docs') docsFileRenamed(tab.webContents, oldPath, newPath)
+      else if (tab.kind === 'sheets') sheetsFileRenamed(tab.webContents, oldPath, newPath)
+    }
   })
 
   // Closing the whole window walks every dirty sheets/pdf/slides/docs tab through

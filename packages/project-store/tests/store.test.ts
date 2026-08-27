@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { ProjectStore } from '../src/store.js'
@@ -767,6 +767,25 @@ describe('moveFileToProject', () => {
     // The old project cannot
     const oldMsgs = store.loadChat('default', chatId)
     expect(oldMsgs).toHaveLength(0)
+  })
+
+  it('moves the document into the target project root and keeps its history', () => {
+    const projectRoot = join(tmpDir, 'target-root')
+    mkdirSync(projectRoot)
+    const sourcePath = join(tmpDir, 'source.docx')
+    writeFileSync(sourcePath, 'document')
+    const proj = store.createProject('Rooted Target', projectRoot)
+    const { chatId } = store.resolveChatForFile(sourcePath)
+    store.appendChatMessage('default', chatId, { role: 'user', text: 'keep this chat' })
+
+    const movedPath = store.moveFileToProject(sourcePath, proj.id)
+    const expectedPath = join(projectRoot, 'source.docx')
+
+    expect(movedPath).toBe(expectedPath)
+    expect(existsSync(sourcePath)).toBe(false)
+    expect(existsSync(expectedPath)).toBe(true)
+    expect(store.getProject(proj.id)?.files).toContain(expectedPath)
+    expect(store.loadChat(proj.id, chatId)).toHaveLength(1)
   })
 
   it('moving to the same project does not throw', () => {

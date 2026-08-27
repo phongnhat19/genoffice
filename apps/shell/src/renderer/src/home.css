@@ -73,34 +73,172 @@ body.vib .home {
   border-right: 1px solid var(--border);
   background: #f4f7fc;
 }
-.settings-kicker { color: var(--accent); font-size: 12px; font-weight: 700; letter-spacing: .1em; }
-.settings-sidebar h1 { margin: 5px 0 22px; font-size: 24px; }
-.settings-nav { display: grid; gap: 3px; width: 100%; padding: 11px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--text-secondary); text-align: left; font: inherit; cursor: pointer; }
-.settings-nav span { font-size: 14px; font-weight: 650; color: var(--text); }
-.settings-nav small { font-size: 12px; }
-.settings-nav:hover { background: #fff; }
-.settings-nav.active { background: #e7efff; color: var(--accent); }
-.settings-content { width: min(780px, 100%); padding: 44px 50px; overflow: auto; }
-.settings-content header { margin-bottom: 28px; }
-.settings-content h2 { margin: 0 0 8px; font-size: 26px; }
-.settings-content h3 { margin: 0 0 7px; font-size: 15px; }
-.settings-content p { margin: 0; color: var(--text-secondary); font-size: 14px; line-height: 1.55; }
-.settings-card { margin: 14px 0; padding: 20px; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
-.settings-card select { width: min(340px, 100%); margin-top: 15px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 7px; background: #fff; color: var(--text); font: inherit; }
-.settings-path { display: flex; align-items: center; gap: 12px; margin-top: 15px; }
-.settings-path code { flex: 1; min-width: 0; padding: 9px 10px; overflow: hidden; border-radius: 7px; background: var(--surface-subtle); color: var(--text-secondary); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.settings-button { padding: 9px 13px; border: 1px solid var(--accent); border-radius: 7px; background: var(--accent); color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
-.settings-button:hover:not(:disabled) { background: var(--accent-hover); }
-.settings-button:disabled { cursor: wait; opacity: .65; }
-.settings-button.secondary { border-color: var(--border); background: #fff; color: var(--text); }
-.settings-actions { margin-top: 15px; }
-.settings-status { display: inline-block; width: 8px; height: 8px; margin: 0 7px 1px 0; border-radius: 50%; background: #9ba3ad; }
-.settings-status.connected { background: #23a35a; }
-.settings-status.connecting { background: #e5a300; }
-.settings-status.expired { background: #e47a22; }
-.settings-note { margin-top: 22px !important; }
-.settings-error { margin-top: 18px !important; color: var(--color-error) !important; }
-@media (max-width: 760px) { .settings-page { grid-template-columns: 1fr; } .settings-sidebar { flex-direction: row; overflow: auto; padding: 16px; } .settings-sidebar > div { display: none; } .settings-nav { min-width: 160px; } .settings-content { padding: 28px 22px; } }
+.settings-kicker {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+.settings-sidebar h1 {
+  margin: 5px 0 22px;
+  font-size: 24px;
+}
+.settings-nav {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  padding: 11px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.settings-nav span {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text);
+}
+.settings-nav small {
+  font-size: 12px;
+}
+.settings-nav:hover {
+  background: #fff;
+}
+.settings-nav.active {
+  background: #e7efff;
+  color: var(--accent);
+}
+.settings-content {
+  width: min(780px, 100%);
+  padding: 44px 50px;
+  overflow: auto;
+}
+.settings-content header {
+  margin-bottom: 28px;
+}
+.settings-content h2 {
+  margin: 0 0 8px;
+  font-size: 26px;
+}
+.settings-content h3 {
+  margin: 0 0 7px;
+  font-size: 15px;
+}
+.settings-content p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.55;
+}
+.settings-card {
+  margin: 14px 0;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+}
+.settings-card select {
+  width: min(340px, 100%);
+  margin-top: 15px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+}
+.settings-path {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 15px;
+}
+.settings-path code {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 10px;
+  overflow: hidden;
+  border-radius: 7px;
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.settings-button {
+  padding: 9px 13px;
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.settings-button:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.settings-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+.settings-button.secondary {
+  border-color: var(--border);
+  background: #fff;
+  color: var(--text);
+}
+.settings-actions {
+  margin-top: 15px;
+}
+.settings-status {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin: 0 7px 1px 0;
+  border-radius: 50%;
+  background: #9ba3ad;
+}
+.settings-status.connected {
+  background: #23a35a;
+}
+.settings-status.connecting {
+  background: #e5a300;
+}
+.settings-status.expired {
+  background: #e47a22;
+}
+.settings-note {
+  margin-top: 22px !important;
+}
+.settings-error {
+  margin-top: 18px !important;
+  color: var(--color-error) !important;
+}
+@media (max-width: 760px) {
+  .settings-page {
+    grid-template-columns: 1fr;
+  }
+  .settings-sidebar {
+    flex-direction: row;
+    overflow: auto;
+    padding: 16px;
+  }
+  .settings-sidebar > div {
+    display: none;
+  }
+  .settings-nav {
+    min-width: 160px;
+  }
+  .settings-content {
+    padding: 28px 22px;
+  }
+}
 
 .workspace-agent {
   display: grid;
@@ -320,6 +458,14 @@ body.vib .home {
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.project-folder-path.project-sync-error {
+  max-width: min(600px, 100%);
+  max-height: 4.5em;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .sidebar {
