@@ -45,6 +45,7 @@ import {
 } from '@genoffice/electron-utils'
 import { readAppSettings, writeAppSetting } from './app-settings'
 import { ProjectStore } from '@genoffice/project-store'
+import { ProjectContextService } from '@genoffice/project-context'
 import {
   buildDocsMenu,
   configureDocsRuntime,
@@ -116,6 +117,7 @@ import { TABS_CHANNELS } from '../shared/tabs-api'
 import { normalizeRecentQuery, pageRecentPaths, statExistingPaths } from './recent-files'
 import { TabManager } from './tab-manager'
 import { WorkspaceBroker } from './workspace-broker'
+import { createOpenRouterContextClient, saveOpenRouterContextKey } from './openrouter-context-client'
 import { WORKSPACE_CHANNELS } from '../shared/workspace-api'
 import { applyUpdateChannel, initAutoUpdater } from './updater'
 import { isUpdateChannel, type UpdateChannel } from '../shared/update-api'
@@ -906,6 +908,7 @@ const tm = (key: Parameters<typeof tMain>[1], params?: Parameters<typeof tMain>[
 let shellWindow: BrowserWindow | null = null
 let tabManager: TabManager | null = null
 let workspaceBroker: WorkspaceBroker | null = null
+let projectContext: ProjectContextService | null = null
 let projectSync: ProjectSyncService | null = null
 
 /**
@@ -1006,17 +1009,27 @@ function createShellWindow(): void {
     safeStorage,
     openExternal: (url) => shell.openExternal(url),
   })
+  projectContext = new ProjectContextService(
+    app.getPath('userData'),
+    (projectId) => projectStore.getProject(projectId)?.rootPath,
+    createOpenRouterContextClient(() => join(app.getPath('userData'), 'project-context-ai-settings.json'), safeStorage),
+  )
   projectSync = new ProjectSyncService(projectStore, orioAi)
   // Refresh an expiring credential and verify project-sync permission during startup.
   void projectSync.refreshAuthorization()
   workspaceBroker = new WorkspaceBroker({
     store: projectStore,
     ai: orioAi,
+    context: projectContext,
     openPath: (path) => openDocumentPath(path),
     onTaskChanged: (task) => {
       if (!win.isDestroyed()) win.webContents.send(WORKSPACE_CHANNELS.changed, task)
     },
   })
+  // Reconciliation catches changes made while ORIO was closed.
+  for (const project of projectStore.listProjectsSummary()) {
+    if (projectContext.status(project.id).enabled) void projectContext.rebuild(project.id)
+  }
   ipcMain.handle(
     PROJECT_CHANNELS.syncStatus,
     (_event, projectId: string) =>
@@ -1662,6 +1675,27 @@ function registerWorkspaceIpc(): void {
       throw new Error('Invalid workspace approval.')
     return workspaceBroker?.decide(input.projectId, input.taskId, input.decision)
   })
+  ipcMain.handle(WORKSPACE_CHANNELS.contextStatus, (_event, projectId: unknown) => {
+    if (typeof projectId !== 'string' || !projectContext) throw new Error('Invalid project.')
+    return projectContext.status(projectId)
+  })
+  ipcMain.handle(WORKSPACE_CHANNELS.configureContext, (_event, projectId: unknown, settings: unknown) => {
+    if (typeof projectId !== 'string' || !settings || typeof settings !== 'object' || !projectContext)
+      throw new Error('Invalid project context settings.')
+    return projectContext.configure(projectId, settings as import('@genoffice/project-context').ProjectContextSettings)
+  })
+  ipcMain.handle(WORKSPACE_CHANNELS.rebuildContext, (_event, projectId: unknown) => {
+    if (typeof projectId !== 'string' || !projectContext) throw new Error('Invalid project.')
+    return projectContext.rebuild(projectId)
+  })
+  ipcMain.handle(WORKSPACE_CHANNELS.clearContext, (_event, projectId: unknown) => {
+    if (typeof projectId !== 'string' || !projectContext) throw new Error('Invalid project.')
+    return projectContext.clear(projectId)
+  })
+  ipcMain.handle(WORKSPACE_CHANNELS.saveContextOpenRouterKey, (_event, apiKey: unknown) => {
+    if (typeof apiKey !== 'string') throw new Error('Invalid OpenRouter key.')
+    return saveOpenRouterContextKey(() => join(app.getPath('userData'), 'project-context-ai-settings.json'), safeStorage, apiKey)
+  })
 }
 
 // ---- home menu ----
@@ -1970,4 +2004,5 @@ app.on('before-quit', () => {
   // No close prompt may fall through to "Save" during shutdown
   markSheetsShuttingDown()
   stopSheetsSidecar()
+  projectContext?.dispose()
 })

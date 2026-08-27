@@ -275,6 +275,23 @@ body.vib .home {
   font-size: 14px;
   line-height: 1.5;
 }
+
+.workspace-context {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  font-size: 12px;
+}
+
+.workspace-context h3 { margin: 0; font-size: 13px; }
+.workspace-context p { margin: 0; }
+.workspace-context-status.indexing { color: #9a6500; font-weight: 600; }
+.workspace-context-status.ready { color: #19733d; font-weight: 600; }
+.workspace-context-status.error { color: #a33; font-weight: 600; }
+.workspace-context-notice { color: #a33; }
+.workspace-context label { display: grid; gap: 4px; }
+.workspace-context input { min-width: 0; padding: 6px; }
+.workspace-context button { width: fit-content; }
 .workspace-project-label {
   display: grid;
   gap: 7px;

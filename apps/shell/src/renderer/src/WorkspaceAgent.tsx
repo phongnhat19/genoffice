@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { ProjectSummaryEntry } from '../../shared/home-api'
 import type { WorkspaceAgentApi } from '../../shared/workspace-api'
 import type { WorkspaceTask } from '@genoffice/project-store'
+import type { ProjectContextStatus } from '@genoffice/project-context'
 
 declare global {
   interface Window {
@@ -19,6 +20,9 @@ export function WorkspaceAgent() {
   const [tasks, setTasks] = useState<WorkspaceTask[]>([])
   const [instruction, setInstruction] = useState('')
   const [error, setError] = useState('')
+  const [context, setContext] = useState<ProjectContextStatus | null>(null)
+  const [entityModel, setEntityModel] = useState('~openai/gpt-latest')
+  const [openRouterKey, setOpenRouterKey] = useState('')
 
   useEffect(() => {
     void window.aiOfficeProject?.listProjects().then((next = []) => {
@@ -30,7 +34,18 @@ export function WorkspaceAgent() {
 
   useEffect(() => {
     void window.aiOfficeWorkspace.list(projectId).then(setTasks)
+    void window.aiOfficeWorkspace.contextStatus(projectId).then(setContext).catch(() => setContext(null))
   }, [projectId])
+
+  // Indexing runs in the privileged main process. Poll only while it is active
+  // so the user sees completion even when no workspace task is running.
+  useEffect(() => {
+    if (context?.state !== 'indexing') return
+    const timer = window.setInterval(() => {
+      void window.aiOfficeWorkspace.contextStatus(projectId).then(setContext).catch(() => undefined)
+    }, 1_000)
+    return () => window.clearInterval(timer)
+  }, [context?.state, projectId])
 
   useEffect(
     () =>
@@ -74,6 +89,30 @@ export function WorkspaceAgent() {
     }
   }
 
+  const setProjectContext = async (enabled: boolean) => {
+    setError('')
+    try {
+      if (enabled && openRouterKey.trim())
+        await window.aiOfficeWorkspace.saveContextOpenRouterKey(openRouterKey.trim())
+      const next = await window.aiOfficeWorkspace.configureContext(projectId, {
+        enabled,
+        ...(enabled ? { consentVersion: 1, embeddingModel: 'openai/text-embedding-3-small', entityModel } : {}),
+      })
+      setContext(next)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not update Project Context.')
+    }
+  }
+
+  const contextLabel =
+    context?.state === 'indexing'
+      ? 'Indexing project…'
+      : context?.state === 'ready'
+        ? `Index complete · ${context.indexedFiles} files · ${context.indexedChunks} excerpts`
+        : context?.state === 'error'
+          ? `Index error · ${context.error ?? 'Try rebuilding the index.'}`
+          : 'Project context is disabled'
+
   return (
     <main className="workspace-agent" aria-label="Workspace Agent">
       <section className="workspace-agent-sidebar">
@@ -100,6 +139,37 @@ export function WorkspaceAgent() {
           Reads stay within the selected project folder. Curated research sources are read-only and
           cited.
         </p>
+        <section className="workspace-context">
+          <h3>Project Context</h3>
+          <p className={`workspace-context-status ${context?.state ?? 'disabled'}`}>{contextLabel}</p>
+          {context?.enabled ? (
+            <>
+              <button className="workspace-secondary" disabled={running} onClick={() => void setProjectContext(false)}>
+                Disable context
+              </button>
+              <button className="workspace-secondary" disabled={running} onClick={() => void window.aiOfficeWorkspace.rebuildContext(projectId).then(setContext)}>
+                Rebuild index
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="workspace-context-notice">
+                Enabling sends extracted project text to OpenRouter for embeddings and a cited entity graph.
+              </p>
+              <label>
+                OpenRouter API key
+                <input type="password" value={openRouterKey} onChange={(event) => setOpenRouterKey(event.target.value)} disabled={running} />
+              </label>
+              <label>
+                Graph model
+                <input value={entityModel} onChange={(event) => setEntityModel(event.target.value)} disabled={running} />
+              </label>
+              <button disabled={running} onClick={() => void setProjectContext(true)}>
+                Enable with OpenRouter
+              </button>
+            </>
+          )}
+        </section>
       </section>
       <section className="workspace-agent-main">
         <div className="workspace-heading">

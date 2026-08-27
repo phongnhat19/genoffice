@@ -29,6 +29,7 @@
     "@genoffice/pptx-render": "*",
     "@genoffice/file-parse": "*",
     "@genoffice/project-store": "*",
+    "@genoffice/project-context": "*",
     "@genoffice/sheets": "*",
     "@genoffice/slides": "*",
     "@types/react": "^19.2.14",

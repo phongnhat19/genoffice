@@ -12,6 +12,7 @@ import type {
   WorkspaceTaskActivity,
   WorkspaceTaskStatus,
 } from '@genoffice/project-store'
+import type { ProjectContextService } from '@genoffice/project-context'
 
 const OFFICE_EXTENSIONS = new Set(['docx', 'xlsx', 'pptx', 'pdf'])
 const MAX_FILE_LIST = 500
@@ -24,6 +25,7 @@ export interface WorkspaceBrokerOptions {
   /** Opens a supported file in a regular editor tab. The broker validates root membership first. */
   openPath(path: string): boolean
   onTaskChanged(task: WorkspaceTask): void
+  context?: ProjectContextService
 }
 
 /**
@@ -100,10 +102,13 @@ export class WorkspaceBroker {
     const toolCalls: AgentToolCall[] = []
     let responseText = ''
     try {
+      const instruction = task.messages.find((message) => message.role === 'user')?.text ?? ''
+      let system = ''
+      try { system = (await this.options.context?.retrieve(task.projectId, instruction))?.systemContext ?? '' } catch { /* context must never block a workspace task */ }
       await this.options.ai.stream(
         {
           requestId: randomUUID(),
-          system: '',
+          system,
           messages,
           remoteSurface: 'workspace',
           remoteSessionId: task.id,
