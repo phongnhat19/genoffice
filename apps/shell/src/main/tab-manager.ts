@@ -21,6 +21,7 @@ import {
 import {
   createSlidesView,
   requestSlidesClose,
+  markSlidesNewBlank,
   setActiveSlidesWebContents,
   slidesIsDirty,
 } from '../../../slides/src/main/slides-main'
@@ -39,6 +40,7 @@ interface TabRecord {
 const TAB_STRIP_HEIGHT = 40
 const HOME_ID = 'home'
 const AGENT_ID = 'agent'
+const SETTINGS_ID = 'settings'
 
 /**
  * Owns every open tab (Home + docs + sheets) inside the shell's single
@@ -130,6 +132,13 @@ export class TabManager {
     this.activateTab(AGENT_ID)
   }
 
+  /** The shell Settings page is a singleton shell-rendered tab, like Home and Agent. */
+  openSettingsTab(): void {
+    if (!this.tabs.some((tab) => tab.id === SETTINGS_ID))
+      this.tabs.push({ id: SETTINGS_ID, kind: 'settings', view: null, title: 'Settings' })
+    this.activateTab(SETTINGS_ID)
+  }
+
   openDocsTab(openPath?: string, options?: { newBlank?: boolean; saveDir?: string }): string {
     const view = createDocsView(openPath)
     const id = `t${this.nextId++}`
@@ -166,9 +175,10 @@ export class TabManager {
     return id
   }
 
-  openSlidesTab(openPath?: string): string {
+  openSlidesTab(openPath?: string, options?: { saveDir?: string }): string {
     const view = createSlidesView(openPath)
     const id = `t${this.nextId++}`
+    if (!openPath) markSlidesNewBlank(view.webContents.id, options?.saveDir)
     this.shellWindow.contentView.addChildView(view)
     view.setVisible(false)
     this.trackHtmlFullScreen(id, view)

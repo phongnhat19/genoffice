@@ -87,6 +87,10 @@ function AgentIcon() {
   )
 }
 
+function SettingsIcon() {
+  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Z" stroke="currentColor" strokeWidth="1.6"/><path d="M19.3 13.8v-3.6l-2-.7a7.3 7.3 0 0 0-.8-1.4l.4-2.1-3.1-1.8-1.5 1.5a7.6 7.6 0 0 0-1.6 0L9.2 4.2 6.1 6l.4 2.1a7.3 7.3 0 0 0-.8 1.4l-2 .7v3.6l2 .7c.2.5.5 1 .8 1.4L6.1 18l3.1 1.8 1.5-1.5a7.6 7.6 0 0 0 1.6 0l1.5 1.5 3.1-1.8-.4-2.1c.3-.4.6-.9.8-1.4l2-.7Z" stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round"/></svg>
+}
+
 function SlideIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 240 240" fill="none" aria-hidden="true">
@@ -102,6 +106,7 @@ function SlideIcon() {
 const KIND_ICON: Record<TabSummary['kind'], ReactElement> = {
   home: <HomeIcon />,
   agent: <AgentIcon />,
+  settings: <SettingsIcon />,
   docs: <DocIcon />,
   sheets: <SheetIcon />,
   slides: <SlideIcon />,

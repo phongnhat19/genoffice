@@ -84,12 +84,14 @@ const createSlidesView = vi.fn(() => makeFakeView())
 const requestSlidesClose = vi.fn(() => Promise.resolve(true))
 const setActiveSlidesWebContents = vi.fn()
 const slidesIsDirty = vi.fn(() => false)
+const markSlidesNewBlank = vi.fn()
 
 vi.mock('../../slides/src/main/slides-main', () => ({
   createSlidesView: (...args: unknown[]) => createSlidesView(...(args as [])),
   requestSlidesClose: (...args: unknown[]) => requestSlidesClose(...(args as [])),
   setActiveSlidesWebContents: (...args: unknown[]) => setActiveSlidesWebContents(...args),
   slidesIsDirty: (...args: unknown[]) => slidesIsDirty(...(args as [])),
+  markSlidesNewBlank: (...args: unknown[]) => markSlidesNewBlank(...args),
 }))
 
 import { TabManager } from '../src/main/tab-manager'
@@ -153,6 +155,15 @@ describe('initial state', () => {
 })
 
 describe('opening tabs', () => {
+  it('opens Settings once and reuses its singleton shell tab', () => {
+    manager.openSettingsTab()
+    manager.openSettingsTab()
+    expect(manager.list()).toEqual([
+      { id: 'home', kind: 'home', title: 'ORIO', closable: false, active: false },
+      { id: 'settings', kind: 'settings', title: 'Settings', closable: true, active: true },
+    ])
+  })
+
   it('opens a docs tab, activates it, and attaches its view to the window', () => {
     const id = manager.openDocsTab()
     const tabs = manager.list()

@@ -28,3 +28,4 @@ export {
   type SafeStorageLike,
 } from './ai-provider-settings'
 export { OrioAiService, type OrioAiOptions } from './orio-ai'
+export { defaultSaveDirectory } from './default-save-directory'

@@ -27,6 +27,7 @@ import { dirname, join } from 'node:path'
 import {
   appMenuLabels,
   contextMenuLabels,
+  defaultSaveDirectory,
   installContextMenu,
   installNavigationGuard,
   safeExternalUrl,
@@ -269,6 +270,12 @@ export { registerAiIpc } from './ai-ipc'
 let pendingOpenPath: string | null = null
 /** tab mode: each view queues its own path; the renderer consumes it after mounting */
 const pendingByWc = new Map<number, string>()
+/** per-new-tab preferred first-save folders supplied by the shell */
+const pendingNewSaveDirs = new Map<number, string>()
+
+export function markSlidesNewBlank(wcId: number, saveDir?: string): void {
+  if (saveDir) pendingNewSaveDirs.set(wcId, saveDir)
+}
 /**
  * Renderer freeze watchdog: the freeze is sporadic and has never
  * reproduced under instrumentation, so when it does happen, capture the
@@ -359,6 +366,7 @@ function trackSlidesWebContents(wc: WebContents): void {
     else untitledRecovery.delete(wc.id)
     sessions.delete(wc.id)
     pendingByWc.delete(wc.id)
+    pendingNewSaveDirs.delete(wc.id)
     clipboards.delete(wc.id)
     lastSlidePaste.delete(wc.id)
     closeSaveWaiters.get(wc.id)?.(false)
@@ -685,7 +693,7 @@ async function openAndBuild(
 
 /** Directory where AI-generated drafts are saved: <Documents>/GenOffice/ */
 function getDraftsDir(): string {
-  return join(app.getPath('documents'), 'GenOffice')
+  return defaultSaveDirectory()
 }
 
 /** Fallback draft filename: <untitled label>-YYYYMMDD-HHmmss.pptx */
@@ -3322,9 +3330,10 @@ export function registerSlidesIpc(): void {
     if (!session) return { ok: false, error: 'no file open' }
     // Untitled (new blank file): the first save lands silently in the drafts folder (Save As keeps its dialog)
     if (!session.path) {
-      const draftsDir = getDraftsDir()
+      const draftsDir = pendingNewSaveDirs.get(e.sender.id) ?? getDraftsDir()
       if (!existsSync(draftsDir)) mkdirSync(draftsDir, { recursive: true })
       session.path = pickDraftPath(draftsDir, tm('untitledDeck'))
+      pendingNewSaveDirs.delete(e.sender.id)
       await pushRecent(session.path)
       slidesOpenedHook?.(e.sender, session.path)
     }
@@ -3354,7 +3363,9 @@ export function registerSlidesIpc(): void {
     if (!session) return { ok: false, error: 'no file open' }
     const parent = dialogParent()
     const options = {
-      defaultPath: defaultName,
+      defaultPath: pendingNewSaveDirs.get(e.sender.id)
+        ? join(pendingNewSaveDirs.get(e.sender.id)!, defaultName)
+        : defaultName,
       filters: [{ name: 'PowerPoint', extensions: ['pptx'] }],
     }
     const r = parent
@@ -3364,6 +3375,7 @@ export function registerSlidesIpc(): void {
     try {
       await savePptxToFile(session.opened, r.filePath)
       session.path = r.filePath
+      pendingNewSaveDirs.delete(e.sender.id)
       autosaveBackoff.delete(r.filePath)
       dropUntitledRecovery(e.sender.id)
       await pushRecent(r.filePath)

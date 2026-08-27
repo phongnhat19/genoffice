@@ -93,6 +93,14 @@ export interface HomeApi {
   getUpdateChannel(): Promise<UpdateChannel>
   /** switch + persist the update channel; triggers an immediate update check */
   setUpdateChannel(channel: UpdateChannel): Promise<void>
+  /** resolved global destination for new non-project Office files */
+  getDefaultSaveDirectory(): Promise<string>
+  /** opens a native folder picker and persists the selected folder */
+  chooseDefaultSaveDirectory(): Promise<string | undefined>
+  /** non-secret ORIO OAuth connection state for Settings */
+  getOrioConnectionStatus(): Promise<'connected' | 'connecting' | 'expired' | 'disconnected'>
+  authorizeOrio(): Promise<void>
+  disconnectOrio(): Promise<void>
   /** app version (from package.json / electron app.getVersion) */
   getAppVersion(): Promise<string>
   /** whether the first-run onboarding has been completed or skipped (persisted in userData/app-settings.json) */
@@ -183,6 +191,11 @@ export const HOME_CHANNELS = {
   setLanguage: 'home:set-language',
   getUpdateChannel: 'home:get-update-channel',
   setUpdateChannel: 'home:set-update-channel',
+  getDefaultSaveDirectory: 'home:get-default-save-directory',
+  chooseDefaultSaveDirectory: 'home:choose-default-save-directory',
+  getOrioConnectionStatus: 'home:get-orio-connection-status',
+  authorizeOrio: 'home:authorize-orio',
+  disconnectOrio: 'home:disconnect-orio',
   getAppVersion: 'home:get-app-version',
   onboardingSeen: 'home:onboarding-seen',
   setOnboardingSeen: 'home:set-onboarding-seen',

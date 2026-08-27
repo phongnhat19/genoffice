@@ -24,6 +24,7 @@ import {
 import {
   appMenuLabels,
   contextMenuLabels,
+  defaultSaveDirectory,
   fetchRemoteImage,
   OrioAiService,
   installContextMenu,
@@ -1927,9 +1928,7 @@ async function saveDialog(event: IpcMainInvokeEvent, options: SaveDialogOptions)
 
 /** default folder where new files land on their first (silent) save; shared with the other editors via shell */
 export function defaultSaveDir(): string {
-  const dir = join(app.getPath('documents'), 'ORIO')
-  mkdirSync(dir, { recursive: true })
-  return dir
+  return defaultSaveDirectory()
 }
 
 /** first free path for fileName inside dir: name.ext, name-2.ext, name-3.ext… */

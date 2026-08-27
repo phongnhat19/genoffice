@@ -125,6 +125,26 @@ const homeApi: HomeApi = {
     if (channel !== 'stable' && channel !== 'beta') throw new Error('Invalid update channel.')
     await ipcRenderer.invoke(HOME_CHANNELS.setUpdateChannel, channel)
   },
+  async getDefaultSaveDirectory() {
+    const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.getDefaultSaveDirectory)
+    return typeof result === 'string' ? result : ''
+  },
+  async chooseDefaultSaveDirectory() {
+    const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.chooseDefaultSaveDirectory)
+    return typeof result === 'string' ? result : undefined
+  },
+  async getOrioConnectionStatus() {
+    const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.getOrioConnectionStatus)
+    return result === 'connected' || result === 'connecting' || result === 'expired'
+      ? result
+      : 'disconnected'
+  },
+  async authorizeOrio() {
+    await ipcRenderer.invoke(HOME_CHANNELS.authorizeOrio)
+  },
+  async disconnectOrio() {
+    await ipcRenderer.invoke(HOME_CHANNELS.disconnectOrio)
+  },
   async getAppVersion() {
     const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.getAppVersion)
     return typeof result === 'string' ? result : ''
@@ -215,6 +235,9 @@ const tabsApi: TabsApi = {
   },
   async openAgent() {
     await ipcRenderer.invoke(TABS_CHANNELS.openAgent)
+  },
+  async openSettings() {
+    await ipcRenderer.invoke(TABS_CHANNELS.openSettings)
   },
   onChanged(handler) {
     const listener = (_event: IpcRendererEvent, tabs: TabSummary[]) => handler(tabs)

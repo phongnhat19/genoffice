@@ -40,6 +40,7 @@ import {
   installContextMenu,
   installNavigationGuard,
   OrioAiService,
+  defaultSaveDirectory,
   windowMenuTemplate,
 } from '@genoffice/electron-utils'
 import { readAppSettings, writeAppSetting } from './app-settings'
@@ -66,7 +67,6 @@ import {
   setDocsShellWindow,
   setDocsFileSavedHook,
   setSessionPathResolver,
-  defaultSaveDir,
   uniquePathIn,
 } from '../../../docs/src/main/docs-main'
 import { blankXlsxBuffer } from '../../../sheets/src/gateway/csv-import'
@@ -1236,9 +1236,9 @@ function openDocumentPath(filePath: string): boolean {
  * pipeline, so the file must exist before edits. Falls back to the old blank
  * tab if the write fails.
  */
-async function newSheetTab(): Promise<void> {
+async function newSheetTab(saveDir?: string): Promise<void> {
   try {
-    const filePath = uniquePathIn(defaultSaveDir(), `${tm('untitledSheet')}.xlsx`)
+    const filePath = uniquePathIn(saveDir ?? defaultSaveDirectory(), `${tm('untitledSheet')}.xlsx`)
     writeFileSync(filePath, await blankXlsxBuffer())
     // eligible for content-derived auto-rename after the first AI generation
     markSheetsUntitledPath(filePath)
@@ -1272,9 +1272,9 @@ function newDocTab(saveDir?: string): void {
   }
 }
 
-function newSlideTab(): void {
+function newSlideTab(saveDir?: string): void {
   try {
-    tabManager?.openSlidesTab()
+    tabManager?.openSlidesTab(undefined, { saveDir })
   } catch (err) {
     surfaceNewTabError(err)
   }
@@ -1357,7 +1357,9 @@ function registerHomeIpc(): void {
   })
 
   ipcMain.handle(HOME_CHANNELS.newDoc, (_event, opts?: { projectId?: string }) => {
-    const project = opts?.projectId ? projectStore.getProject(opts.projectId) : null
+    const project = opts?.projectId
+      ? new ProjectStore(app.getPath('userData')).getProject(opts.projectId)
+      : null
     if (opts?.projectId && opts.projectId !== 'default') {
       pendingNewFileProject.set('doc', opts.projectId)
     }
@@ -1365,17 +1367,23 @@ function registerHomeIpc(): void {
   })
 
   ipcMain.handle(HOME_CHANNELS.newSheet, (_event, opts?: { projectId?: string }) => {
+    const project = opts?.projectId
+      ? new ProjectStore(app.getPath('userData')).getProject(opts.projectId)
+      : null
     if (opts?.projectId && opts.projectId !== 'default') {
       pendingNewFileProject.set('sheet', opts.projectId)
     }
-    void newSheetTab()
+    void newSheetTab(project?.rootPath)
   })
 
   ipcMain.handle(HOME_CHANNELS.newSlide, (_event, opts?: { projectId?: string }) => {
+    const project = opts?.projectId
+      ? new ProjectStore(app.getPath('userData')).getProject(opts.projectId)
+      : null
     if (opts?.projectId && opts.projectId !== 'default') {
       pendingNewFileProject.set('slide', opts.projectId)
     }
-    newSlideTab()
+    newSlideTab(project?.rootPath)
   })
 
   ipcMain.handle(HOME_CHANNELS.removeRecent, (_event, paths: unknown) => {
@@ -1474,6 +1482,31 @@ function registerHomeIpc(): void {
     applyUpdateChannel(channel)
   })
 
+  ipcMain.handle(HOME_CHANNELS.getDefaultSaveDirectory, () => defaultSaveDirectory())
+  ipcMain.handle(HOME_CHANNELS.chooseDefaultSaveDirectory, async () => {
+    if (!shellWindow) return undefined
+    const result = await dialog.showOpenDialog(shellWindow, {
+      title: 'Choose default save folder',
+      properties: ['openDirectory', 'createDirectory'],
+    })
+    const directory = result.canceled ? undefined : result.filePaths[0]
+    if (!directory) return undefined
+    writeAppSetting(APP_SETTINGS_PATH(), 'defaultSaveDirectory', directory)
+    return directory
+  })
+  const settingsOrio = () =>
+    new OrioAiService({
+      path: () => join(app.getPath('userData'), 'ai-settings.json'),
+      safeStorage,
+      openExternal: (url) => shell.openExternal(url),
+    })
+  ipcMain.handle(HOME_CHANNELS.getOrioConnectionStatus, async () => {
+    const connection = (await settingsOrio().view()).connections?.[0]
+    return connection?.status ?? 'disconnected'
+  })
+  ipcMain.handle(HOME_CHANNELS.authorizeOrio, () => settingsOrio().startAuthorization())
+  ipcMain.handle(HOME_CHANNELS.disconnectOrio, () => settingsOrio().disconnect())
+
   ipcMain.handle(
     HOME_CHANNELS.onboardingSeen,
     (): boolean => readAppSettings(APP_SETTINGS_PATH()).onboardingSeen === true,
@@ -1519,6 +1552,7 @@ function menuIcons(): MenuIconSet {
 const TAB_MENU_ICON: Record<TabKind, keyof MenuIconSet> = {
   home: 'home',
   agent: 'home',
+  settings: 'home',
   docs: 'docx',
   sheets: 'xlsx',
   slides: 'pptx',
@@ -1530,6 +1564,7 @@ function registerTabsIpc(): void {
   ipcMain.handle(TABS_CHANNELS.activate, (_event, id: string) => tabManager?.activateTab(id))
   ipcMain.handle(TABS_CHANNELS.close, (_event, id: string) => tabManager?.closeTab(id))
   ipcMain.handle(TABS_CHANNELS.openAgent, () => tabManager?.openAgentTab())
+  ipcMain.handle(TABS_CHANNELS.openSettings, () => tabManager?.openSettingsTab())
   ipcMain.handle(TABS_CHANNELS.reorder, (_event, id: string, toIndex: number) => {
     if (typeof id === 'string' && Number.isInteger(toIndex)) tabManager?.reorderTab(id, toIndex)
   })

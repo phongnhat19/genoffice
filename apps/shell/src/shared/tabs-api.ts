@@ -1,4 +1,4 @@
-export type TabKind = 'home' | 'agent' | 'docs' | 'sheets' | 'slides' | 'pdf'
+export type TabKind = 'home' | 'agent' | 'settings' | 'docs' | 'sheets' | 'slides' | 'pdf'
 
 /** one open tab in the top tab strip; Home is always id 'home' and not closable */
 export interface TabSummary {
@@ -29,6 +29,8 @@ export interface TabsApi {
   reorder(id: string, toIndex: number): Promise<void>
   /** Opens the singleton project Workspace Agent tab. */
   openAgent(): Promise<void>
+  /** Opens the singleton shell Settings tab. */
+  openSettings(): Promise<void>
   /** subscribe to tab list changes (open/close/activate/title updates); returns unsubscribe */
   onChanged(handler: (tabs: TabSummary[]) => void): () => void
 }
@@ -42,4 +44,5 @@ export const TABS_CHANNELS = {
   reorder: 'tabs:reorder',
   changed: 'tabs:changed',
   openAgent: 'tabs:open-agent',
+  openSettings: 'tabs:open-settings',
 } as const

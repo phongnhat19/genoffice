@@ -606,12 +606,7 @@ function AccountEntry() {
   }, [chanFly])
 
   const handleClick = () => {
-    setMenuOpen((v) => {
-      if (!v) void window.aiOffice.getUpdateChannel().then(setChannel)
-      return !v
-    })
-    setLangFly(null)
-    setChanFly(null)
+    void window.aiOfficeTabs.openSettings()
   }
 
   return (
@@ -660,7 +655,7 @@ function AccountEntry() {
               <div
                 className="lang-flyout"
                 role="menu"
-                style={{ left: langFly.left, bottom: langFly.bottom }}
+                style={{ left: langFly!.left, bottom: langFly!.bottom }}
               >
                 {LANG_OPTIONS.map((opt) => (
                   <button
@@ -745,7 +740,7 @@ function AccountEntry() {
               <div
                 className="lang-flyout"
                 role="menu"
-                style={{ left: chanFly.left, bottom: chanFly.bottom }}
+                style={{ left: chanFly!.left, bottom: chanFly!.bottom }}
               >
                 {CHANNEL_OPTIONS.map((opt) => (
                   <button
@@ -800,14 +795,13 @@ function AccountEntry() {
       <button
         className="account-btn"
         onClick={handleClick}
-        aria-expanded={menuOpen}
-        title={t('account')}
-        aria-label={t('account')}
+        title="Settings"
+        aria-label="Settings"
       >
         <span className="account-avatar">O</span>
         <span className="account-text">
-          <span className="account-name">ORIO</span>
-          <span className="account-sub">{t('account')}</span>
+          <span className="account-name">Settings</span>
+          <span className="account-sub">Preferences</span>
         </span>
       </button>
     </div>
