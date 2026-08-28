@@ -599,6 +599,29 @@ export class ProjectStore {
     return [...new Set(proj.files)].filter((filePath) => existsSync(filePath))
   }
 
+  /** Associates an existing file with a project without moving it on disk. */
+  registerProjectFile(projectId: string, filePath: string): void {
+    const targetProject = this.readProject(projectId)
+    if (!targetProject) throw new Error(`Target project does not exist: ${projectId}`)
+
+    const index = this.readIndex()
+    const previousProjectId = index.fileMap[filePath]
+    if (previousProjectId && previousProjectId !== projectId) {
+      const previousProject = this.readProject(previousProjectId)
+      if (previousProject) {
+        previousProject.files = previousProject.files.filter((path) => path !== filePath)
+        previousProject.updatedAt = nowIso()
+        this.writeProject(previousProject)
+      }
+    }
+
+    index.fileMap[filePath] = projectId
+    this.writeIndex(index)
+    if (!targetProject.files.includes(filePath)) targetProject.files.push(filePath)
+    targetProject.updatedAt = nowIso()
+    this.writeProject(targetProject)
+  }
+
   /**
    * Creates a project (name must be non-empty; id is the first 12 hex chars of
    * sha256(name) plus a timestamp suffix to avoid collisions).

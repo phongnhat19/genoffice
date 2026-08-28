@@ -162,6 +162,8 @@ export interface ProjectHomeApi {
   syncNow(projectId: string): Promise<ProjectSyncStatusEntry | undefined>
   setAutoSync(projectId: string, enabled: boolean): Promise<ProjectSyncStatusEntry | undefined>
   listCloudProjects(): Promise<CloudProjectEntry[]>
+  /** Downloads the selected project's cloud copy into its configured local folder. */
+  pullCloudProject(projectId: string): Promise<ProjectSyncStatusEntry | undefined>
   importCloudProject(projectId: string): Promise<ProjectSyncStatusEntry | undefined>
   resolveConflict(projectId: string, path: string, choice: 'local' | 'cloud' | 'both'): Promise<ProjectSyncStatusEntry | undefined>
   deleteCloudProject(projectId: string): Promise<void>
@@ -215,6 +217,7 @@ export const PROJECT_CHANNELS = {
   syncNow: 'project:syncNow',
   setAutoSync: 'project:setAutoSync',
   listCloud: 'project:listCloud',
+  pullCloud: 'project:pullCloud',
   importCloud: 'project:importCloud',
   resolveConflict: 'project:resolveConflict',
   deleteCloud: 'project:deleteCloud',

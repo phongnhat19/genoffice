@@ -29,6 +29,7 @@
     "@genoffice/pptx-render": "*",
     "@genoffice/file-parse": "*",
     "@genoffice/project-store": "*",
+    "@genoffice/ui": "*",
     "@genoffice/project-context": "*",
     "@genoffice/sheets": "*",
     "@genoffice/slides": "*",

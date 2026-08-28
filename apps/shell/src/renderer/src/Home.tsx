@@ -834,7 +834,10 @@ export function Home() {
   const [cloudProjects, setCloudProjects] = useState<
     import('../../shared/home-api').CloudProjectEntry[]
   >([])
-  const [syncingProjectId, setSyncingProjectId] = useState<string | null>(null)
+  const [cloudOperation, setCloudOperation] = useState<{
+    projectId: string
+    kind: 'sync' | 'pull'
+  } | null>(null)
   const [cloudAuthorized, setCloudAuthorized] = useState(false)
 
   const showCloudError = (error: unknown) => {
@@ -1470,6 +1473,12 @@ export function Home() {
     const proj = projects.find((p) => p.id === selectedProjectId)
     if (!proj) return null
     const otherProjects = projects.filter((p) => p.id !== proj.id)
+    const cloudVersion = cloudProjects.find((cloud) => cloud.id === proj.id)
+    const isSyncing =
+      (cloudOperation?.projectId === proj.id && cloudOperation.kind === 'sync') ||
+      syncStatus?.status === 'syncing'
+    const isPulling = cloudOperation?.projectId === proj.id && cloudOperation.kind === 'pull'
+    const isCloudBusy = isSyncing || isPulling
 
     return (
       <main className="content">
@@ -1497,22 +1506,47 @@ export function Home() {
                 ? syncStatus?.status === 'error' && syncStatus.error
                   ? syncStatus.error
                   : 'Authorize ORIO to enable private cloud sync.'
-                : syncingProjectId === proj.id || syncStatus?.status === 'syncing'
-                  ? 'Syncing your project to ORIO Cloud…'
-                  : syncStatus?.status === 'conflict'
-                    ? `${syncStatus.conflicts?.length ?? 0} conflict(s) need a choice`
-                    : syncStatus?.status === 'error'
-                      ? (syncStatus.error ?? 'Cloud sync failed.')
-                      : syncStatus?.lastSyncedAt
-                        ? `Last synced ${new Date(syncStatus.lastSyncedAt).toLocaleString()}`
+                : isPulling
+                  ? 'Downloading the cloud version into this project folder…'
+                  : isSyncing
+                    ? 'Syncing your project to ORIO Cloud…'
+                    : syncStatus?.status === 'conflict'
+                      ? `${syncStatus.conflicts?.length ?? 0} conflict(s) need a choice`
+                      : syncStatus?.status === 'error'
+                        ? (syncStatus.error ?? 'Cloud sync failed.')
+                        : syncStatus?.lastSyncedAt
+                          ? `Last synced ${new Date(syncStatus.lastSyncedAt).toLocaleString()}`
                         : 'Not synced yet'}
             </div>
+            {cloudAuthorized && (
+              <label className="project-sync-toggle">
+                <span>Auto-sync changes</span>
+                <input
+                  type="checkbox"
+                  checked={syncStatus?.autoSync === true}
+                  disabled={isCloudBusy}
+                  onChange={(event) =>
+                    void window.aiOfficeProject
+                      ?.setAutoSync(proj.id, event.target.checked)
+                      .then((value) => value && setSyncStatus(value))
+                      .catch(showCloudError)
+                  }
+                />
+                <span className="project-sync-toggle-control" aria-hidden="true" />
+              </label>
+            )}
           </div>
           {!cloudAuthorized ? (
             <button
               className="selection-action"
               onClick={() =>
-                void window.aiOfficeProject?.authorizeCloud().then(() => setCloudAuthorized(true))
+                void window.aiOfficeProject
+                  ?.authorizeCloud()
+                  .then(async () => {
+                    setCloudAuthorized(true)
+                    setCloudProjects(await window.aiOfficeProject!.listCloudProjects())
+                  })
+                  .catch(showCloudError)
               }
             >
               Authorize
@@ -1521,9 +1555,9 @@ export function Home() {
             <div className="selection-bar">
               <button
                 className="selection-action"
-                disabled={syncingProjectId === proj.id || syncStatus?.status === 'syncing'}
+                disabled={isCloudBusy}
                 onClick={() => {
-                  setSyncingProjectId(proj.id)
+                  setCloudOperation({ projectId: proj.id, kind: 'sync' })
                   void window.aiOfficeProject
                     ?.syncNow(proj.id)
                     .then((value) => value && setSyncStatus(value))
@@ -1534,33 +1568,37 @@ export function Home() {
                         error: error instanceof Error ? error.message : 'Sync failed.',
                       }),
                     )
-                    .finally(() => setSyncingProjectId(null))
+                    .finally(() => setCloudOperation(null))
                 }}
               >
-                {syncingProjectId === proj.id || syncStatus?.status === 'syncing'
-                  ? 'Syncing…'
-                  : 'Sync now'}
+                {isSyncing ? 'Syncing…' : 'Sync now'}
               </button>
               <button
                 className="selection-action"
+                disabled={!cloudVersion || isCloudBusy}
+                title={
+                  cloudVersion
+                    ? 'Download the cloud copy into this project folder.'
+                    : 'No cloud copy exists for this project yet.'
+                }
                 onClick={() =>
-                  void window.aiOfficeProject
-                    ?.setAutoSync(proj.id, !syncStatus?.autoSync)
-                    .then((value) => value && setSyncStatus(value))
+                  window.confirm(
+                    'Download the cloud version into this project folder? Files with matching paths will be overwritten. Local-only files will remain.',
+                  ) &&
+                  (() => {
+                    setCloudOperation({ projectId: proj.id, kind: 'pull' })
+                    void window.aiOfficeProject
+                      ?.pullCloudProject(proj.id)
+                      .then((value) => {
+                        if (value) setSyncStatus(value)
+                        refresh()
+                      })
+                      .catch(showCloudError)
+                      .finally(() => setCloudOperation(null))
+                  })()
                 }
               >
-                {syncStatus?.autoSync ? 'Auto sync on' : 'Enable auto sync'}
-              </button>
-              <button
-                className="selection-action"
-                onClick={() =>
-                  void window.aiOfficeProject
-                    ?.listCloudProjects()
-                    .then(setCloudProjects)
-                    .catch(showCloudError)
-                }
-              >
-                Import from Cloud
+                {isPulling ? 'Pulling…' : 'Pull cloud version'}
               </button>
               <button
                 className="selection-action danger"

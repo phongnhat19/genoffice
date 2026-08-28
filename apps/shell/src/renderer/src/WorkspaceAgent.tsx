@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { AiComposer } from '@genoffice/ui'
 import type { ProjectSummaryEntry } from '../../shared/home-api'
 import type { WorkspaceAgentApi } from '../../shared/workspace-api'
 import type { WorkspaceTask } from '@genoffice/project-store'
@@ -179,7 +180,6 @@ export function WorkspaceAgent() {
               {task?.status ?? 'ready'}
             </span>
           </div>
-          {running && <button onClick={() => void cancel()}>Stop</button>}
         </div>
 
         <div className="workspace-transcript" aria-live="polite">
@@ -246,23 +246,21 @@ export function WorkspaceAgent() {
           </section>
         )}
 
-        <form
-          className="workspace-composer"
-          onSubmit={(event) => {
-            event.preventDefault()
-            void start()
-          }}
-        >
-          <textarea
+        <div className="workspace-composer">
+          <AiComposer
             value={instruction}
-            onChange={(event) => setInstruction(event.target.value)}
+            busy={running}
             placeholder="What should the Workspace Agent do?"
-            disabled={running}
+            hintIdle="Enter to run · Shift+Enter for a new line"
+            hintBusy="Esc to stop"
+            sendLabel="Run task"
+            stopLabel="Stop"
+            ariaLabel="Workspace Agent task instruction"
+            onChange={setInstruction}
+            onSend={() => void start()}
+            onStop={() => void cancel()}
           />
-          <button type="submit" disabled={!instruction.trim() || running}>
-            Run task
-          </button>
-        </form>
+        </div>
         {error && <p className="workspace-error">{error}</p>}
       </section>
     </main>

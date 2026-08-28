@@ -319,6 +319,21 @@ export class ProjectSyncService {
       status: 'idle',
     })
   }
+  /** Downloads the cloud copy into this project's existing local folder. */
+  async pullCloudProject(projectId: string) {
+    const project = this.store.getProject(projectId)
+    if (!project) throw new Error('Project not found.')
+    if (!project.rootPath) throw new Error('Set a project folder before pulling the cloud version.')
+    try {
+      if (!statSync(project.rootPath).isDirectory())
+        throw new Error('Project folder is not available.')
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Project folder is not available.')
+        throw error
+      throw new Error('Project folder is not available.')
+    }
+    return this.importCloudProject(projectId, project.rootPath)
+  }
   async importCloudProject(projectId: string, rootPath: string) {
     const response = await this.ai.cloudRequest(
       `/api/v1/projects/${encodeURIComponent(projectId)}/manifest`,
@@ -330,6 +345,7 @@ export class ProjectSyncService {
       tasks: {},
     }
     const checksums: Record<string, string> = {}
+    const importedFiles: string[] = []
     for (const entry of manifest.entries) {
       const intentResponse = await this.ai.cloudRequest(
         `/api/v1/projects/${encodeURIComponent(projectId)}/download-url`,
@@ -345,6 +361,7 @@ export class ProjectSyncService {
         if (!target.startsWith(resolve(rootPath) + sep)) throw new Error('Invalid cloud file path.')
         mkdirSync(dirname(target), { recursive: true })
         writeFileSync(target, bytes)
+        importedFiles.push(target)
       } else if (entry.path.startsWith('metadata/chats/'))
         metadata.chats[entry.path.slice('metadata/chats/'.length).replace(/\.jsonl$/, '')] =
           bytes.toString('utf8')
@@ -354,6 +371,7 @@ export class ProjectSyncService {
         ] = bytes.toString('utf8')
     }
     this.store.importPortableProject(projectId, manifest.name, rootPath, metadata)
+    for (const filePath of importedFiles) this.store.registerProjectFile(projectId, filePath)
     this.store.setProjectSyncState(projectId, {
       cloudRevision: manifest.revision,
       lastSyncedChecksums: checksums,

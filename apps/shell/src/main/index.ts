@@ -1044,6 +1044,9 @@ function createShellWindow(): void {
       projectSync?.setAutoSync(args.projectId, args.enabled),
   )
   ipcMain.handle(PROJECT_CHANNELS.listCloud, () => projectSync?.listCloudProjects() ?? [])
+  ipcMain.handle(PROJECT_CHANNELS.pullCloud, (_event, projectId: string) =>
+    projectSync?.pullCloudProject(projectId),
+  )
   ipcMain.handle(PROJECT_CHANNELS.importCloud, async (_event, projectId: string) => {
     if (!projectSync || !shellWindow) return undefined
     const chosen = await dialog.showOpenDialog(shellWindow, {
