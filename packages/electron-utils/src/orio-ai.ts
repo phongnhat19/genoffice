@@ -59,6 +59,20 @@ export class OrioAiService {
     | undefined
   constructor(private readonly options: OrioAiOptions) {}
   private readonly remoteSessions = new Map<string, string>()
+  private refreshTimer: NodeJS.Timeout | undefined
+
+  /** Keep a valid desktop credential fresh without making the renderer wait. */
+  startBackgroundRefresh(): void {
+    if (this.refreshTimer) return
+    const refresh = () => { void this.ensureAuthorized() }
+    refresh()
+    this.refreshTimer = setInterval(refresh, 60_000)
+    this.refreshTimer.unref?.()
+  }
+  stopBackgroundRefresh(): void {
+    if (this.refreshTimer) clearInterval(this.refreshTimer)
+    this.refreshTimer = undefined
+  }
 
   private config(): OAuthConfig {
     const env = this.options.env ?? process.env

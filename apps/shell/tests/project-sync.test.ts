@@ -46,4 +46,21 @@ describe('ProjectSyncService', () => {
 
     expect(store.listProjectFiles(project.id)).toEqual([join(rootPath, 'brief.docx')])
   })
+
+  it('caches a cloud authorization check for fifteen minutes', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'project-sync-auth-test-'))
+    tempDirectories.push(directory)
+    const store = new ProjectStore(join(directory, 'user-data'))
+    const ai = {
+      ensureAuthorized: vi.fn(async () => true),
+      cloudRequest: vi.fn(async () => new Response(JSON.stringify({ projects: [] }))),
+    } as unknown as OrioAiService
+    const service = new ProjectSyncService(store, ai)
+    const recreatedService = new ProjectSyncService(store, ai)
+
+    await expect(service.authorizationStatus()).resolves.toBe(true)
+    await expect(recreatedService.authorizationStatus()).resolves.toBe(true)
+    expect(ai.ensureAuthorized).toHaveBeenCalledTimes(1)
+    expect(ai.cloudRequest).toHaveBeenCalledTimes(1)
+  })
 })

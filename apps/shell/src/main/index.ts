@@ -1010,6 +1010,7 @@ function createShellWindow(): void {
     safeStorage,
     openExternal: (url) => shell.openExternal(url),
   })
+  orioAi.startBackgroundRefresh()
   projectContext = new ProjectContextService(
     app.getPath('userData'),
     (projectId) => projectStore.getProject(projectId)?.rootPath,
@@ -1706,7 +1707,7 @@ function registerWorkspaceIpc(): void {
   })
   // A decryptable cached token alone is not enough: confirm it is still an
   // active ORIO Cloud account before the renderer can reveal the agent UI.
-  ipcMain.handle(WORKSPACE_CHANNELS.isAuthorized, () => projectSync?.authorizationStatus() ?? false)
+  ipcMain.handle(WORKSPACE_CHANNELS.isAuthorized, (_event, force: unknown) => projectSync?.authorizationStatus(force === true) ?? false)
   ipcMain.handle(WORKSPACE_CHANNELS.authorize, () => orioAi?.startAuthorization())
 }
 

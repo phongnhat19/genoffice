@@ -23,6 +23,9 @@ declare global {
 
 /** page size of the home list; scrolling to the bottom auto-loads the next page */
 const PAGE_SIZE = 50
+const HOME_CLOUD_AUTH_TTL_MS = 15 * 60_000
+let homeCloudAuthorization: { authorized: boolean; expiresAt: number } | undefined
+let rememberedHomeProjectId: string | null = null
 
 /** greeting sublines on the home page: one is picked at random on entry */
 const GREET_ASK_KEYS = [
@@ -827,7 +830,7 @@ export function Home() {
 
   // ── Project state ──
   const [projects, setProjects] = useState<ProjectSummaryEntry[]>([])
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(rememberedHomeProjectId)
   const [syncStatus, setSyncStatus] = useState<
     import('../../shared/home-api').ProjectSyncStatusEntry | null
   >(null)
@@ -840,6 +843,7 @@ export function Home() {
   } | null>(null)
   const [cloudAuthorized, setCloudAuthorized] = useState(false)
   const [cloudAuthLoading, setCloudAuthLoading] = useState(false)
+  const [cloudAuthResolved, setCloudAuthResolved] = useState(false)
 
   const showCloudError = (error: unknown) => {
     setSyncStatus({
@@ -850,6 +854,10 @@ export function Home() {
   }
 
   const projectMode = hasProjectApi()
+  const selectHomeProject = (projectId: string | null) => {
+    rememberedHomeProjectId = projectId
+    setSelectedProjectId(projectId)
+  }
 
   // ── Paged loading ──
   // stale responses are dropped via a request sequence number (when views/filters switch quickly)
@@ -900,29 +908,47 @@ export function Home() {
   useEffect(() => {
     if (!selectedProjectId || !window.aiOfficeProject) return
     let current = true
-    setCloudAuthLoading(true)
+    const applyAuthorization = async (authorized: boolean) => {
+      if (!current) return
+      setCloudAuthorized(authorized)
+      if (!authorized) {
+        setCloudProjects([])
+        return
+      }
+      try {
+        setCloudProjects(await window.aiOfficeProject!.listCloudProjects())
+      } catch (error) {
+        setCloudProjects([])
+        showCloudError(error)
+      }
+    }
+    // Authorization belongs to the desktop session, not an individual
+    // project. Once it is known, project switches reuse the cached state
+    // without briefly replacing the Cloud panel with a loading message.
+    const cached = homeCloudAuthorization
+    if (cached && cached.expiresAt > Date.now()) {
+      void applyAuthorization(cached.authorized)
+      void window.aiOfficeProject.getSyncStatus(selectedProjectId).then((next) => { if (current) setSyncStatus(next) })
+      return () => { current = false }
+    }
+    if (!cloudAuthResolved) setCloudAuthLoading(true)
     void window.aiOfficeProject
       .isCloudAuthorized()
-      .then(async (authorized) => {
-        if (!current) return
-        setCloudAuthorized(authorized)
-        if (!authorized) {
-          setCloudProjects([])
-          return
-        }
-        try {
-          setCloudProjects(await window.aiOfficeProject!.listCloudProjects())
-        } catch (error) {
-          setCloudProjects([])
-          showCloudError(error)
-        }
+      .then((authorized) => {
+        homeCloudAuthorization = { authorized, expiresAt: Date.now() + HOME_CLOUD_AUTH_TTL_MS }
+        return applyAuthorization(authorized)
       })
       .catch(() => {
         if (!current) return
         setCloudAuthorized(false)
         setCloudProjects([])
+        homeCloudAuthorization = { authorized: false, expiresAt: Date.now() + HOME_CLOUD_AUTH_TTL_MS }
       })
-      .finally(() => { if (current) setCloudAuthLoading(false) })
+      .finally(() => {
+        if (!current) return
+        setCloudAuthLoading(false)
+        setCloudAuthResolved(true)
+      })
     void window.aiOfficeProject.getSyncStatus(selectedProjectId).then((next) => { if (current) setSyncStatus(next) })
     return () => { current = false }
   }, [selectedProjectId, projectTick])
@@ -1555,6 +1581,8 @@ export function Home() {
                   ?.authorizeCloud()
                   .then(async () => {
                     setCloudAuthorized(true)
+                    setCloudAuthResolved(true)
+                    homeCloudAuthorization = { authorized: true, expiresAt: Date.now() + HOME_CLOUD_AUTH_TTL_MS }
                     setCloudProjects(await window.aiOfficeProject!.listCloudProjects())
                   })
                   .catch(showCloudError)
@@ -1923,7 +1951,7 @@ export function Home() {
             className={`nav-item${view === 'recent' && !selectedProjectId ? ' active' : ''}`}
             onClick={() => {
               changeView('recent')
-              setSelectedProjectId(null)
+              selectHomeProject(null)
             }}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -1942,7 +1970,7 @@ export function Home() {
             className={`nav-item${view === 'starred' && !selectedProjectId ? ' active' : ''}`}
             onClick={() => {
               changeView('starred')
-              setSelectedProjectId(null)
+              selectHomeProject(null)
             }}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -1966,7 +1994,7 @@ export function Home() {
               projects={projects}
               selectedId={selectedProjectId}
               onSelect={(id) => {
-                setSelectedProjectId(id)
+                selectHomeProject(id)
                 // reset list-selection state on any project switch (paths are
                 // shared between the plain view and project views)
                 setSelected(new Set())
@@ -1976,6 +2004,7 @@ export function Home() {
             />
           </>
         )}
+        <AccountEntry />
       </aside>
 
       {selectedProjectId ? renderProjectContent() : renderGlobalContent()}

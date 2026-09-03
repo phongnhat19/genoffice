@@ -42,6 +42,11 @@ function walk(root: string, directory = root): string[] {
 export type SyncStatus = ProjectSyncState & { available: boolean }
 type RequestError = Error & { status?: number }
 const MAX_SYNC_ERROR_LENGTH = 240
+const AUTHORIZATION_TTL_MS = 15 * 60_000
+// Main-process shared state: Home, Agent, and a recreated shell window must
+// all reuse one Cloud verification rather than each issuing a remote check.
+let cloudAuthorizationCache: { authorized: boolean; expiresAt: number } | undefined
+let cloudAuthorizationRequest: Promise<boolean> | undefined
 
 function errorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : 'Project sync failed.'
@@ -82,20 +87,31 @@ export class ProjectSyncService {
     return { ...state, available: Boolean(project) }
   }
   /** Refresh a near-expiry token and verify it still has cloud-project permission. */
-  async refreshAuthorization(): Promise<boolean> {
-    if (!(await this.ai.ensureAuthorized())) return false
-    try {
-      await this.ai.cloudRequest('/api/v1/projects', { method: 'GET' })
-      return true
-    } catch (error) {
-      // Connectivity/service failures should not sign a valid local session out.
-      return ![401, 403].includes((error as RequestError).status ?? 0)
-    }
+  async refreshAuthorization(force = false): Promise<boolean> {
+    if (!force && cloudAuthorizationCache && cloudAuthorizationCache.expiresAt > Date.now())
+      return cloudAuthorizationCache.authorized
+    if (cloudAuthorizationRequest) return cloudAuthorizationRequest
+    cloudAuthorizationRequest = (async () => {
+      let authorized = false
+      if (await this.ai.ensureAuthorized()) {
+        try {
+          await this.ai.cloudRequest('/api/v1/projects', { method: 'GET' })
+          authorized = true
+        } catch (error) {
+          // Connectivity/service failures should not sign a valid local session out.
+          authorized = ![401, 403].includes((error as RequestError).status ?? 0)
+        }
+      }
+      cloudAuthorizationCache = { authorized, expiresAt: Date.now() + AUTHORIZATION_TTL_MS }
+      return authorized
+    })()
+    try { return await cloudAuthorizationRequest } finally { cloudAuthorizationRequest = undefined }
   }
-  async authorizationStatus() {
-    return this.refreshAuthorization()
+  async authorizationStatus(force = false) {
+    return this.refreshAuthorization(force)
   }
   async authorize() {
+    cloudAuthorizationCache = undefined
     await this.ai.startAuthorization()
   }
   async listCloudProjects() {

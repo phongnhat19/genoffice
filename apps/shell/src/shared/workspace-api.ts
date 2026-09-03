@@ -15,7 +15,7 @@ export interface WorkspaceAgentApi {
   configureContext(projectId: string, settings: Partial<ProjectContextSettings>): Promise<ProjectContextStatus>
   rebuildContext(projectId: string): Promise<ProjectContextStatus>
   clearContext(projectId: string): Promise<ProjectContextStatus>
-  isAuthorized(): Promise<boolean>
+  isAuthorized(force?: boolean): Promise<boolean>
   authorize(): Promise<void>
   /** Sent for deltas, activities, and state transitions. */
   onChanged(handler: (task: WorkspaceTask) => void): () => void

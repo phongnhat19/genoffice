@@ -15,9 +15,15 @@ function latestTask(tasks: readonly WorkspaceTask[]): WorkspaceTask | null {
   return tasks[0] ?? null
 }
 
+const LAST_PROJECT_KEY = 'orio.workspace-agent.project-id'
+
+function rememberedProjectId(): string {
+  try { return window.localStorage.getItem(LAST_PROJECT_KEY) ?? 'default' } catch { return 'default' }
+}
+
 export function WorkspaceAgent() {
   const [projects, setProjects] = useState<ProjectSummaryEntry[]>([])
-  const [projectId, setProjectId] = useState('default')
+  const [projectId, setProjectId] = useState(rememberedProjectId)
   const [tasks, setTasks] = useState<WorkspaceTask[]>([])
   const [instruction, setInstruction] = useState('')
   const [error, setError] = useState('')
@@ -33,7 +39,7 @@ export function WorkspaceAgent() {
   useEffect(() => {
     if (!authorizing) return
     const timer = window.setInterval(() => {
-      void window.aiOfficeWorkspace.isAuthorized().then((next) => {
+      void window.aiOfficeWorkspace.isAuthorized(true).then((next) => {
         if (!next) return
         window.clearInterval(timer)
         setAuthorized(true)
@@ -51,8 +57,11 @@ export function WorkspaceAgent() {
     if (authorized !== true) return
     void window.aiOfficeProject?.listProjects().then((next = []) => {
       setProjects(next)
-      if (next.length > 0 && !next.some((project) => project.id === projectId))
-        setProjectId(next[0]!.id)
+      if (next.length > 0 && !next.some((project) => project.id === projectId)) {
+        const fallback = next[0]!.id
+        setProjectId(fallback)
+        try { window.localStorage.setItem(LAST_PROJECT_KEY, fallback) } catch { /* storage is optional */ }
+      }
     })
   }, [authorized])
 
@@ -184,7 +193,11 @@ export function WorkspaceAgent() {
           Project
           <select
             value={projectId}
-            onChange={(event) => setProjectId(event.target.value)}
+            onChange={(event) => {
+              const next = event.target.value
+              setProjectId(next)
+              try { window.localStorage.setItem(LAST_PROJECT_KEY, next) } catch { /* storage is optional */ }
+            }}
             disabled={running || projectLoading}
           >
             {projects.map((project) => (
