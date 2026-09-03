@@ -49,6 +49,10 @@ const config = {
   files: ['out/**'],
   extraResources: [
     {
+      from: 'build/icon.png',
+      to: 'icon.png',
+    },
+    {
       from: 'build/THIRD-PARTY-NOTICES.txt',
       to: 'THIRD-PARTY-NOTICES.txt',
     },
@@ -124,6 +128,10 @@ const config = {
     entitlementsInherit: 'build/entitlements.mac.plist',
     notarize: true,
     extraResources: [
+      {
+        from: 'build/icon.png',
+        to: 'icon.png',
+      },
       {
         from: '../sheets/native/xlsx-engine/target/release/xlsx-sidecar',
         to: 'native/xlsx-sidecar',

@@ -127,6 +127,10 @@ import { isUpdateChannel, type UpdateChannel } from '../shared/update-api'
 // identity before Electron derives user-facing paths and menus.
 const APP_NAME = 'ORIO'
 app.setName(APP_NAME)
+const runtimeIconPath = () =>
+  app.isPackaged
+    ? join(process.resourcesPath, 'icon.png')
+    : join(app.getAppPath(), 'build', 'icon.png')
 
 /**
  * GenOffice unified shell: ONE Electron app, ONE BrowserWindow, hosting the
@@ -970,16 +974,13 @@ function createShellWindow(): void {
     minWidth: 980,
     minHeight: 600,
     title: APP_NAME,
+    // Use the ORIO mark consistently for the desktop window. This is
+    // especially important in development, where Electron has its own icon.
+    icon: runtimeIconPath(),
     // vibrancy: editor modules punch translucent regions (e.g. the slides
     // thumbnail pane) through to the desktop
     ...(process.platform === 'darwin'
       ? { titleBarStyle: 'hiddenInset' as const, vibrancy: 'sidebar' as const }
-      : {}),
-    // Packaged apps embed their platform icon. electron-vite runs the generic
-    // Electron executable instead, so Windows and Linux need the development
-    // window icon explicitly; macOS uses the Dock icon set at startup below.
-    ...(!app.isPackaged && process.platform !== 'darwin'
-      ? { icon: join(app.getAppPath(), 'build', 'icon.png') }
       : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -1973,10 +1974,10 @@ registerWorkspaceIpc()
 setSessionPathResolver(resolveSheetsSessionPath)
 
 app.whenReady().then(() => {
-  // Packaged macOS builds get icon.icns from electron-builder. In development
-  // Electron.app supplies its own Dock icon unless we replace it explicitly.
-  if (!app.isPackaged && process.platform === 'darwin') {
-    app.dock?.setIcon(join(app.getAppPath(), 'build', 'icon.png'))
+  // Always set the Dock icon at runtime: it keeps development and packaged
+  // macOS launches aligned with the same ORIO mark used by the window.
+  if (process.platform === 'darwin') {
+    app.dock?.setIcon(runtimeIconPath())
   }
 
   const hasLock = app.requestSingleInstanceLock(
