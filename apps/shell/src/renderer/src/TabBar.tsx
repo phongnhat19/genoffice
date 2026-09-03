@@ -70,19 +70,19 @@ function AgentIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path
-        d="M12 3.5a8.5 8.5 0 1 0 8.5 8.5"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-      />
-      <path
-        d="M12 7v5l3.5 2"
+        d="M5.5 6.75A3.75 3.75 0 0 1 9.25 3h5.5a3.75 3.75 0 0 1 3.75 3.75v4.5A3.75 3.75 0 0 1 14.75 15H11l-3.75 3v-3A3.75 3.75 0 0 1 5.5 11.25z"
         stroke="currentColor"
         strokeWidth="1.7"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <path d="M18 3v3m-1.5-1.5h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path
+        d="M16.75 17.25v3m-1.5-1.5h3M20.5 13.5v2m-1-1h2"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   )
 }

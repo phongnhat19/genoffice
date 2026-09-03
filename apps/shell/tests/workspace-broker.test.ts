@@ -28,6 +28,7 @@ describe('WorkspaceBroker', () => {
   it('executes only a root-scoped local tool and continues the remote session with its result', async () => {
     let calls = 0
     const ai = {
+      ensureAuthorized: async () => true,
       stream: async (_request: unknown, onChunk: (chunk: any) => void) => {
         calls++
         if (calls === 1) {
@@ -52,7 +53,7 @@ describe('WorkspaceBroker', () => {
       onTaskChanged: (task) => changes.push(task.status),
     })
 
-    const task = broker.start('default', 'List the files')
+    const task = await broker.start('default', 'List the files')
     await tick()
     await tick()
 
@@ -63,5 +64,18 @@ describe('WorkspaceBroker', () => {
     expect(saved?.activity.some((entry) => entry.name === 'list_workspace_files')).toBe(true)
     expect(saved?.citations[0]?.url).toBe('https://example.com')
     expect(changes).toContain('completed')
+  })
+
+  it('does not persist or stream a task until ORIO Cloud is authorized', async () => {
+    const stream = async () => { throw new Error('must not stream') }
+    const broker = new WorkspaceBroker({
+      store,
+      ai: { ensureAuthorized: async () => false, stream } as unknown as OrioAiService,
+      openPath: () => true,
+      onTaskChanged: () => undefined,
+    })
+
+    await expect(broker.start('default', 'List the files')).rejects.toThrow('Authorize ORIO Cloud')
+    expect(store.listWorkspaceTasks('default')).toEqual([])
   })
 })

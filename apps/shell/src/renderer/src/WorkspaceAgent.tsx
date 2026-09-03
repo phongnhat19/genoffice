@@ -22,42 +22,68 @@ export function WorkspaceAgent() {
   const [instruction, setInstruction] = useState('')
   const [error, setError] = useState('')
   const [context, setContext] = useState<ProjectContextStatus | null>(null)
-  const [entityModel, setEntityModel] = useState('~openai/gpt-latest')
-  const [openRouterKey, setOpenRouterKey] = useState('')
+  const [authorized, setAuthorized] = useState<boolean | null>(null)
+  const [authorizing, setAuthorizing] = useState(false)
 
   useEffect(() => {
+    void window.aiOfficeWorkspace.isAuthorized().then(setAuthorized).catch(() => setAuthorized(false))
+  }, [])
+
+  useEffect(() => {
+    if (!authorizing) return
+    const timer = window.setInterval(() => {
+      void window.aiOfficeWorkspace.isAuthorized().then((next) => {
+        if (!next) return
+        window.clearInterval(timer)
+        setAuthorized(true)
+        setAuthorizing(false)
+        setError('')
+      }).catch((cause) => {
+        setAuthorizing(false)
+        setError(cause instanceof Error ? cause.message : 'Could not verify ORIO Cloud authorization.')
+      })
+    }, 1_000)
+    return () => window.clearInterval(timer)
+  }, [authorizing])
+
+  useEffect(() => {
+    if (authorized !== true) return
     void window.aiOfficeProject?.listProjects().then((next = []) => {
       setProjects(next)
       if (next.length > 0 && !next.some((project) => project.id === projectId))
         setProjectId(next[0]!.id)
     })
-  }, [])
+  }, [authorized])
 
   useEffect(() => {
+    if (authorized !== true) return
     void window.aiOfficeWorkspace.list(projectId).then(setTasks)
     void window.aiOfficeWorkspace.contextStatus(projectId).then(setContext).catch(() => setContext(null))
-  }, [projectId])
+  }, [authorized, projectId])
 
   // Indexing runs in the privileged main process. Poll only while it is active
   // so the user sees completion even when no workspace task is running.
   useEffect(() => {
+    if (authorized !== true) return
     if (context?.state !== 'indexing') return
     const timer = window.setInterval(() => {
       void window.aiOfficeWorkspace.contextStatus(projectId).then(setContext).catch(() => undefined)
     }, 1_000)
     return () => window.clearInterval(timer)
-  }, [context?.state, projectId])
+  }, [authorized, context?.state, projectId])
 
   useEffect(
-    () =>
-      window.aiOfficeWorkspace.onChanged((task) => {
+    () => {
+      if (authorized !== true) return undefined
+      return window.aiOfficeWorkspace.onChanged((task) => {
         if (task.projectId !== projectId) return
         setTasks((previous) => {
           const rest = previous.filter((item) => item.id !== task.id)
           return [task, ...rest].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
         })
-      }),
-    [projectId],
+      })
+    },
+    [authorized, projectId],
   )
 
   const task = useMemo(() => latestTask(tasks), [tasks])
@@ -93,11 +119,9 @@ export function WorkspaceAgent() {
   const setProjectContext = async (enabled: boolean) => {
     setError('')
     try {
-      if (enabled && openRouterKey.trim())
-        await window.aiOfficeWorkspace.saveContextOpenRouterKey(openRouterKey.trim())
       const next = await window.aiOfficeWorkspace.configureContext(projectId, {
         enabled,
-        ...(enabled ? { consentVersion: 1, embeddingModel: 'openai/text-embedding-3-small', entityModel } : {}),
+        ...(enabled ? { consentVersion: 1 } : {}),
       })
       setContext(next)
     } catch (cause) {
@@ -112,7 +136,37 @@ export function WorkspaceAgent() {
         ? `Index complete · ${context.indexedFiles} files · ${context.indexedChunks} excerpts`
         : context?.state === 'error'
           ? `Index error · ${context.error ?? 'Try rebuilding the index.'}`
+          : context?.state === 'needs_rebuild'
+            ? 'Project context needs an ORIO Cloud rebuild.'
           : 'Project context is disabled'
+
+  const authorize = async () => {
+    setError('')
+    setAuthorizing(true)
+    try {
+      await window.aiOfficeWorkspace.authorize()
+    } catch (cause) {
+      setAuthorizing(false)
+      setError(cause instanceof Error ? cause.message : 'Could not start ORIO Cloud authorization.')
+    }
+  }
+
+  if (authorized !== true) {
+    return (
+      <main className="workspace-agent-auth" aria-label="Authorize Workspace Agent">
+        <section>
+          <p className="workspace-eyebrow">ORIO Cloud</p>
+          <h1>Authorize the Workspace Agent</h1>
+          <p>Connect ORIO Cloud to use the agent. ORIO handles AI inference; this desktop app never stores a provider key.</p>
+          <button onClick={() => void authorize()} disabled={authorizing || authorized === null}>
+            {authorizing ? 'Waiting for authorization…' : 'Authorize ORIO Cloud'}
+          </button>
+          {authorizing && <p className="workspace-auth-wait" aria-live="polite">Finish authorization in your browser, then return here.</p>}
+          {error && <p className="workspace-error" role="alert">{error}</p>}
+        </section>
+      </main>
+    )
+  }
 
   return (
     <main className="workspace-agent" aria-label="Workspace Agent">
@@ -154,19 +208,9 @@ export function WorkspaceAgent() {
             </>
           ) : (
             <>
-              <p className="workspace-context-notice">
-                Enabling sends extracted project text to OpenRouter for embeddings and a cited entity graph.
-              </p>
-              <label>
-                OpenRouter API key
-                <input type="password" value={openRouterKey} onChange={(event) => setOpenRouterKey(event.target.value)} disabled={running} />
-              </label>
-              <label>
-                Graph model
-                <input value={entityModel} onChange={(event) => setEntityModel(event.target.value)} disabled={running} />
-              </label>
+              <p className="workspace-context-notice">Enabling sends extracted project text to ORIO Cloud to build a local cited index.</p>
               <button disabled={running} onClick={() => void setProjectContext(true)}>
-                Enable with OpenRouter
+                Enable Project Context
               </button>
             </>
           )}

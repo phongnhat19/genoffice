@@ -1,11 +1,17 @@
-export type ProjectContextState = 'disabled' | 'paused' | 'indexing' | 'ready' | 'error'
+export type ProjectContextState =
+  | 'disabled'
+  | 'paused'
+  | 'indexing'
+  | 'ready'
+  | 'needs_rebuild'
+  | 'error'
 
 export interface ProjectContextSettings {
   enabled: boolean
   /** Bumped whenever the cloud-content consent text changes. */
   consentVersion?: number
-  embeddingModel: string
-  entityModel?: string
+  /** Context inference is always performed by ORIO Cloud. */
+  provider: 'orio' | 'legacy'
 }
 
 export interface ProjectContextStatus extends ProjectContextSettings {
@@ -46,9 +52,13 @@ export interface ProjectContextRelation {
 }
 
 export interface ProjectContextCloudClient {
-  embed(input: string[], model: string, inputType: 'search_document' | 'search_query'): Promise<number[][]>
+  embed(
+    projectId: string,
+    input: string[],
+    inputType: 'search_document' | 'search_query',
+  ): Promise<number[][]>
   extractGraph?(
+    projectId: string,
     chunks: Array<{ id: string; text: string }>,
-    model: string,
   ): Promise<{ entities: ProjectContextEntity[]; relations: ProjectContextRelation[] }>
 }

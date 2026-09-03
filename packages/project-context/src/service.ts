@@ -14,7 +14,7 @@ const MAX_FILE_BYTES = 12 * 1024 * 1024
 type Chunk = { id: string; path: string; anchor: string; text: string; terms: string[]; vector: number[] }
 type FileRecord = { path: string; size: number; mtimeMs: number; hash: string; chunkIds: string[]; error?: string }
 type IndexData = {
-  version: 1
+  version: 2
   revision: number
   settings: ProjectContextSettings
   files: Record<string, FileRecord>
@@ -28,7 +28,7 @@ type IndexData = {
 function digest(value: string | Buffer): string { return createHash('sha256').update(value).digest('hex') }
 function tokenize(value: string): string[] { return [...new Set(value.toLowerCase().match(/[\p{L}\p{N}_-]{2,}/gu) ?? [])] }
 function defaultData(): IndexData {
-  return { version: 1, revision: 0, settings: { enabled: false, embeddingModel: 'openai/text-embedding-3-small' }, files: {}, chunks: {}, entities: [], relations: [] }
+  return { version: 2, revision: 0, settings: { enabled: false, provider: 'orio' }, files: {}, chunks: {}, entities: [], relations: [] }
 }
 
 /** Main-process, project-root constrained context index. It never scans or sends a file without consent. */
@@ -41,19 +41,38 @@ export class ProjectContextService {
 
   private file(projectId: string): string { return join(this.basePath, 'project-context', projectId, 'index.json') }
   private read(projectId: string): IndexData {
-    try { return { ...defaultData(), ...JSON.parse(readFileSync(this.file(projectId), 'utf8')) as IndexData } } catch { return defaultData() }
+    try {
+      const parsed = JSON.parse(readFileSync(this.file(projectId), 'utf8')) as Partial<IndexData>
+      const defaults = defaultData()
+      const legacy = parsed.version !== 2 || parsed.settings?.provider !== 'orio'
+      return {
+        ...defaults,
+        ...parsed,
+        version: 2,
+        settings: { ...defaults.settings, ...parsed.settings, provider: legacy ? 'legacy' : 'orio' },
+      }
+    } catch { return defaultData() }
   }
   private save(projectId: string, data: IndexData): void {
     const path = this.file(projectId); mkdirSync(join(this.basePath, 'project-context', projectId), { recursive: true }); writeFileSync(path, JSON.stringify(data), 'utf8')
   }
   status(projectId: string): ProjectContextStatus {
     const data = this.read(projectId)
-    const state = !data.settings.enabled ? 'disabled' : this.running.has(projectId) ? 'indexing' : data.error ? 'error' : 'ready'
+    const state = !data.settings.enabled
+      ? 'disabled'
+      : data.settings.provider !== 'orio'
+        ? 'needs_rebuild'
+        : this.running.has(projectId)
+          ? 'indexing'
+          : data.error
+            ? 'error'
+            : 'ready'
     return { ...data.settings, state, indexedFiles: Object.keys(data.files).length, indexedChunks: Object.keys(data.chunks).length, lastIndexedAt: data.lastIndexedAt, ...(data.error ? { error: data.error } : {}) }
   }
   configure(projectId: string, settings: Partial<ProjectContextSettings>): ProjectContextStatus {
     const data = this.read(projectId)
     data.settings = { ...data.settings, ...settings }
+    if (settings.enabled) data.settings.provider = 'orio'
     if (data.settings.enabled && data.settings.consentVersion !== CONSENT_VERSION) {
       data.settings.enabled = false; data.error = 'Cloud indexing requires explicit consent.'
     } else data.error = undefined
@@ -72,6 +91,10 @@ export class ProjectContextService {
     if (this.running.has(projectId)) return this.status(projectId)
     const root = this.safeRoot(projectId); const data = this.read(projectId)
     if (!data.settings.enabled || data.settings.consentVersion !== CONSENT_VERSION) return this.status(projectId)
+    if (data.settings.provider !== 'orio') {
+      data.settings.provider = 'orio'
+      data.files = {}; data.chunks = {}; data.entities = []; data.relations = []
+    }
     this.running.add(projectId); data.error = undefined; this.save(projectId, data)
     try {
       const seen = new Set<string>()
@@ -85,8 +108,8 @@ export class ProjectContextService {
   async clear(projectId: string): Promise<ProjectContextStatus> { this.stopWatch(projectId); const data = this.read(projectId); data.files = {}; data.chunks = {}; data.entities = []; data.relations = []; data.revision++; data.lastIndexedAt = undefined; this.save(projectId, data); return this.status(projectId) }
   async retrieve(projectId: string, query: string, budget = 8_000): Promise<ProjectContextResult> {
     const data = this.read(projectId)
-    if (!data.settings.enabled || data.settings.consentVersion !== CONSENT_VERSION || !query.trim()) return { revision: data.revision, sources: [], systemContext: '' }
-    const [queryVector] = await this.cloud.embed([query], data.settings.embeddingModel, 'search_query')
+    if (!data.settings.enabled || data.settings.provider !== 'orio' || data.settings.consentVersion !== CONSENT_VERSION || !query.trim()) return { revision: data.revision, sources: [], systemContext: '' }
+    const [queryVector] = await this.cloud.embed(projectId, [query], 'search_query')
     const terms = new Set(tokenize(query)); const cosine = (a: number[], b: number[]) => { let dot = 0, aa = 0, bb = 0; for (let i = 0; i < Math.min(a.length, b.length); i++) { dot += a[i]! * b[i]!; aa += a[i]! * a[i]!; bb += b[i]! * b[i]! } return dot / (Math.sqrt(aa) * Math.sqrt(bb) || 1) }
     const ranked = Object.values(data.chunks).map((chunk) => ({ chunk, score: cosine(queryVector ?? [], chunk.vector) + tokenize(chunk.text).filter((term) => terms.has(term)).length * 0.04 })).sort((a, b) => b.score - a.score)
     const sources: ProjectContextSource[] = []; let used = 0
@@ -103,10 +126,10 @@ export class ProjectContextService {
   private async indexFile(projectId: string, root: string, path: string, data: IndexData): Promise<void> {
     const stat = statSync(path); const rel = relative(root, path).split(sep).join('/'); const bytes = readFileSync(path); const hash = digest(bytes); if (data.files[rel]?.hash === hash) return
     this.removeFile(data, rel); const parsed = await parseFileToText(path); if (!parsed.ok || parsed.kind !== 'text') { data.files[rel] = { path: rel, size: stat.size, mtimeMs: stat.mtimeMs, hash, chunkIds: [], error: parsed.error ?? 'Could not extract text.' }; return }
-    const chunks = this.chunk(rel, parsed.text ?? ''); const vectors = chunks.length ? await this.cloud.embed(chunks.map((chunk) => chunk.text), data.settings.embeddingModel, 'search_document') : []
+    const chunks = this.chunk(rel, parsed.text ?? ''); const vectors = chunks.length ? await this.cloud.embed(projectId, chunks.map((chunk) => chunk.text), 'search_document') : []
     for (let i = 0; i < chunks.length; i++) { const chunk = chunks[i]!; chunk.vector = vectors[i] ?? []; data.chunks[chunk.id] = chunk }
     data.files[rel] = { path: rel, size: stat.size, mtimeMs: stat.mtimeMs, hash, chunkIds: chunks.map((chunk) => chunk.id) }
-    if (data.settings.entityModel && this.cloud.extractGraph && chunks.length) { const graph = await this.cloud.extractGraph(chunks.map(({ id, text }) => ({ id, text })), data.settings.entityModel); const valid = new Set(chunks.map((chunk) => chunk.id)); data.entities.push(...graph.entities.filter((entity) => entity.sourceChunkIds.every((id) => valid.has(id)))); data.relations.push(...graph.relations.filter((relation) => relation.sourceChunkIds.every((id) => valid.has(id)) && relation.confidence >= 0 && relation.confidence <= 1)) }
+    if (this.cloud.extractGraph && chunks.length) { const graph = await this.cloud.extractGraph(projectId, chunks.map(({ id, text }) => ({ id, text }))); const valid = new Set(chunks.map((chunk) => chunk.id)); data.entities.push(...graph.entities.filter((entity) => entity.sourceChunkIds.every((id) => valid.has(id)))); data.relations.push(...graph.relations.filter((relation) => relation.sourceChunkIds.every((id) => valid.has(id)) && relation.confidence >= 0 && relation.confidence <= 1)) }
   }
   private chunk(path: string, text: string): Chunk[] { const sections = text.split(/(?=^#{1,6}\s|^##\s(?:Slide|Sheet)\b)/m).filter(Boolean); const result: Chunk[] = []; let n = 0; for (const section of sections.length ? sections : [text]) for (let start = 0; start < section.length; start += CHUNK_SIZE - CHUNK_OVERLAP) { const value = section.slice(start, start + CHUNK_SIZE).trim(); if (!value) continue; const anchor = (section.match(/^#+\s+([^\n]+)/)?.[1] ?? `chunk-${n + 1}`).slice(0, 120); result.push({ id: digest(`${path}\0${anchor}\0${value}`), path, anchor, text: value, terms: tokenize(value), vector: [] }); n++; if (start + CHUNK_SIZE >= section.length) break } return result }
   private removeFile(data: IndexData, path: string): void { const old = data.files[path]; if (!old) return; for (const id of old.chunkIds) delete data.chunks[id]; const remaining = new Set(Object.keys(data.chunks)); data.entities = data.entities.filter((entity) => entity.sourceChunkIds.every((id) => remaining.has(id))); data.relations = data.relations.filter((relation) => relation.sourceChunkIds.every((id) => remaining.has(id))); delete data.files[path] }

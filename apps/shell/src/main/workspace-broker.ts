@@ -43,11 +43,13 @@ export class WorkspaceBroker {
     return this.options.store.listWorkspaceTasks(projectId)
   }
 
-  start(projectId: string, instruction: string): WorkspaceTask {
+  async start(projectId: string, instruction: string): Promise<WorkspaceTask> {
     const text = instruction.trim()
     if (!text) throw new Error('Enter a task for the Workspace Agent.')
     if (this.active.has(projectId))
       throw new Error('A workspace task is already running for this project.')
+    if (!(await this.options.ai.ensureAuthorized()))
+      throw new Error('Authorize ORIO Cloud before using the Workspace Agent.')
     this.projectRoot(projectId)
     const now = new Date().toISOString()
     const task: WorkspaceTask = {

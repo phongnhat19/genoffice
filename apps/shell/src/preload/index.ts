@@ -275,8 +275,11 @@ const workspaceApi: WorkspaceAgentApi = {
   async clearContext(projectId) {
     return (await ipcRenderer.invoke(WORKSPACE_CHANNELS.clearContext, projectId)) as import('@genoffice/project-context').ProjectContextStatus
   },
-  async saveContextOpenRouterKey(apiKey) {
-    await ipcRenderer.invoke(WORKSPACE_CHANNELS.saveContextOpenRouterKey, apiKey)
+  async isAuthorized() {
+    return (await ipcRenderer.invoke(WORKSPACE_CHANNELS.isAuthorized)) === true
+  },
+  async authorize() {
+    await ipcRenderer.invoke(WORKSPACE_CHANNELS.authorize)
   },
   onChanged(handler) {
     const listener = (_event: IpcRendererEvent, task: WorkspaceTask) => handler(task)

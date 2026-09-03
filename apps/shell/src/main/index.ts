@@ -117,7 +117,7 @@ import { TABS_CHANNELS } from '../shared/tabs-api'
 import { normalizeRecentQuery, pageRecentPaths, statExistingPaths } from './recent-files'
 import { TabManager } from './tab-manager'
 import { WorkspaceBroker } from './workspace-broker'
-import { createOpenRouterContextClient, saveOpenRouterContextKey } from './openrouter-context-client'
+import { createOrioProjectContextClient } from './orio-project-context-client'
 import { WORKSPACE_CHANNELS } from '../shared/workspace-api'
 import { applyUpdateChannel, initAutoUpdater } from './updater'
 import { isUpdateChannel, type UpdateChannel } from '../shared/update-api'
@@ -910,6 +910,7 @@ let tabManager: TabManager | null = null
 let workspaceBroker: WorkspaceBroker | null = null
 let projectContext: ProjectContextService | null = null
 let projectSync: ProjectSyncService | null = null
+let orioAi: OrioAiService | null = null
 
 /**
  * When the user creates a file from a specific project view, remember which
@@ -1004,7 +1005,7 @@ function createShellWindow(): void {
   )
   tabManager = manager
   const projectStore = new ProjectStore(app.getPath('userData'))
-  const orioAi = new OrioAiService({
+  orioAi = new OrioAiService({
     path: () => join(app.getPath('userData'), 'ai-settings.json'),
     safeStorage,
     openExternal: (url) => shell.openExternal(url),
@@ -1012,7 +1013,7 @@ function createShellWindow(): void {
   projectContext = new ProjectContextService(
     app.getPath('userData'),
     (projectId) => projectStore.getProject(projectId)?.rootPath,
-    createOpenRouterContextClient(() => join(app.getPath('userData'), 'project-context-ai-settings.json'), safeStorage),
+    createOrioProjectContextClient(orioAi),
   )
   projectSync = new ProjectSyncService(projectStore, orioAi)
   // Refresh an expiring credential and verify project-sync permission during startup.
@@ -1026,10 +1027,14 @@ function createShellWindow(): void {
       if (!win.isDestroyed()) win.webContents.send(WORKSPACE_CHANNELS.changed, task)
     },
   })
-  // Reconciliation catches changes made while ORIO was closed.
-  for (const project of projectStore.listProjectsSummary()) {
-    if (projectContext.status(project.id).enabled) void projectContext.rebuild(project.id)
-  }
+  // Reconciliation catches changes made while ORIO was closed, but never
+  // sends extracted project text before the user has authorized ORIO Cloud.
+  void orioAi.ensureAuthorized().then((authorized) => {
+    if (!authorized) return
+    for (const project of projectStore.listProjectsSummary()) {
+      if (projectContext?.status(project.id).enabled) void projectContext.rebuild(project.id)
+    }
+  })
   ipcMain.handle(
     PROJECT_CHANNELS.syncStatus,
     (_event, projectId: string) =>
@@ -1656,7 +1661,7 @@ function registerWorkspaceIpc(): void {
     if (typeof projectId !== 'string') return []
     return workspaceBroker?.list(projectId) ?? []
   })
-  ipcMain.handle(WORKSPACE_CHANNELS.start, (_event, args: unknown) => {
+  ipcMain.handle(WORKSPACE_CHANNELS.start, async (_event, args: unknown) => {
     const input = args as { projectId?: unknown; instruction?: unknown }
     if (typeof input?.projectId !== 'string' || typeof input.instruction !== 'string')
       throw new Error('Invalid workspace task.')
@@ -1682,23 +1687,23 @@ function registerWorkspaceIpc(): void {
     if (typeof projectId !== 'string' || !projectContext) throw new Error('Invalid project.')
     return projectContext.status(projectId)
   })
-  ipcMain.handle(WORKSPACE_CHANNELS.configureContext, (_event, projectId: unknown, settings: unknown) => {
+  ipcMain.handle(WORKSPACE_CHANNELS.configureContext, async (_event, projectId: unknown, settings: unknown) => {
     if (typeof projectId !== 'string' || !settings || typeof settings !== 'object' || !projectContext)
       throw new Error('Invalid project context settings.')
+    if (!(await orioAi?.ensureAuthorized())) throw new Error('Authorize ORIO Cloud before enabling Project Context.')
     return projectContext.configure(projectId, settings as import('@genoffice/project-context').ProjectContextSettings)
   })
-  ipcMain.handle(WORKSPACE_CHANNELS.rebuildContext, (_event, projectId: unknown) => {
+  ipcMain.handle(WORKSPACE_CHANNELS.rebuildContext, async (_event, projectId: unknown) => {
     if (typeof projectId !== 'string' || !projectContext) throw new Error('Invalid project.')
+    if (!(await orioAi?.ensureAuthorized())) throw new Error('Authorize ORIO Cloud before rebuilding Project Context.')
     return projectContext.rebuild(projectId)
   })
   ipcMain.handle(WORKSPACE_CHANNELS.clearContext, (_event, projectId: unknown) => {
     if (typeof projectId !== 'string' || !projectContext) throw new Error('Invalid project.')
     return projectContext.clear(projectId)
   })
-  ipcMain.handle(WORKSPACE_CHANNELS.saveContextOpenRouterKey, (_event, apiKey: unknown) => {
-    if (typeof apiKey !== 'string') throw new Error('Invalid OpenRouter key.')
-    return saveOpenRouterContextKey(() => join(app.getPath('userData'), 'project-context-ai-settings.json'), safeStorage, apiKey)
-  })
+  ipcMain.handle(WORKSPACE_CHANNELS.isAuthorized, () => orioAi?.ensureAuthorized() ?? false)
+  ipcMain.handle(WORKSPACE_CHANNELS.authorize, () => orioAi?.startAuthorization())
 }
 
 // ---- home menu ----

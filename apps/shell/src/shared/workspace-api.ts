@@ -15,7 +15,8 @@ export interface WorkspaceAgentApi {
   configureContext(projectId: string, settings: Partial<ProjectContextSettings>): Promise<ProjectContextStatus>
   rebuildContext(projectId: string): Promise<ProjectContextStatus>
   clearContext(projectId: string): Promise<ProjectContextStatus>
-  saveContextOpenRouterKey(apiKey: string): Promise<void>
+  isAuthorized(): Promise<boolean>
+  authorize(): Promise<void>
   /** Sent for deltas, activities, and state transitions. */
   onChanged(handler: (task: WorkspaceTask) => void): () => void
 }
@@ -30,5 +31,6 @@ export const WORKSPACE_CHANNELS = {
   configureContext: 'workspace:context-configure',
   rebuildContext: 'workspace:context-rebuild',
   clearContext: 'workspace:context-clear',
-  saveContextOpenRouterKey: 'workspace:context-openrouter-key',
+  isAuthorized: 'workspace:is-authorized',
+  authorize: 'workspace:authorize',
 } as const
