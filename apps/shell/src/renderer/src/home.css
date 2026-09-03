@@ -309,6 +309,27 @@ body.vib .home {
 .workspace-agent-auth button:disabled { cursor: not-allowed; opacity: .55; }
 .workspace-agent-auth button:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--color-focus-ring); }
 .workspace-auth-wait { margin-top: 12px !important; }
+.workspace-loading,
+.project-auth-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-text-secondary);
+  font-size: var(--text-small);
+}
+.workspace-loading > span,
+.workspace-loading-dot,
+.project-auth-loading > span {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--color-border-strong);
+  border-right-color: var(--color-brand-secondary);
+  border-radius: 50%;
+  animation: workspace-spin 700ms linear infinite;
+}
+.workspace-loading-dot { margin-right: 6px; vertical-align: -1px; }
+@keyframes workspace-spin { to { transform: rotate(1turn); } }
 .workspace-agent-sidebar {
   display: flex;
   flex-direction: column;
@@ -633,6 +654,9 @@ body.vib .home {
   .workspace-agent-main *::after {
     transition-duration: 0.01ms !important;
   }
+  .workspace-loading > span,
+  .workspace-loading-dot,
+  .project-auth-loading > span { animation: none; }
 }
 
 /* ---- two-pane frame (below the 40px tab bar) ---- */

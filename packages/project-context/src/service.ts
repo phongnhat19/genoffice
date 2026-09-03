@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { mkdirSync, readFileSync, readdirSync, realpathSync, statSync, watch, writeFileSync, type FSWatcher } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync, watch, writeFileSync, type FSWatcher } from 'node:fs'
 import { extname, join, relative, resolve, sep } from 'node:path'
 import { parseFileToText } from '@genoffice/file-parse'
 import type { ProjectContextCloudClient, ProjectContextEntity, ProjectContextRelation, ProjectContextResult, ProjectContextSettings, ProjectContextSource, ProjectContextStatus } from './types'
@@ -28,7 +28,7 @@ type IndexData = {
 function digest(value: string | Buffer): string { return createHash('sha256').update(value).digest('hex') }
 function tokenize(value: string): string[] { return [...new Set(value.toLowerCase().match(/[\p{L}\p{N}_-]{2,}/gu) ?? [])] }
 function defaultData(): IndexData {
-  return { version: 2, revision: 0, settings: { enabled: false, provider: 'orio' }, files: {}, chunks: {}, entities: [], relations: [] }
+  return { version: 2, revision: 0, settings: { enabled: true, consentVersion: CONSENT_VERSION, provider: 'orio' }, files: {}, chunks: {}, entities: [], relations: [] }
 }
 
 /** Main-process, project-root constrained context index. It never scans or sends a file without consent. */
@@ -68,6 +68,13 @@ export class ProjectContextService {
             ? 'error'
             : 'ready'
     return { ...data.settings, state, indexedFiles: Object.keys(data.files).length, indexedChunks: Object.keys(data.chunks).length, lastIndexedAt: data.lastIndexedAt, ...(data.error ? { error: data.error } : {}) }
+  }
+  /** Activates and starts the local index on first authorized project access. */
+  activate(projectId: string): ProjectContextStatus {
+    const data = this.read(projectId)
+    if (!existsSync(this.file(projectId)) || !data.settings.enabled || data.settings.consentVersion !== CONSENT_VERSION || data.settings.provider !== 'orio')
+      return this.configure(projectId, { enabled: true, consentVersion: CONSENT_VERSION })
+    return this.status(projectId)
   }
   configure(projectId: string, settings: Partial<ProjectContextSettings>): ProjectContextStatus {
     const data = this.read(projectId)

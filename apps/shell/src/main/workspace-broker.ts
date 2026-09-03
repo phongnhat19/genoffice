@@ -22,6 +22,8 @@ const MAX_READ_CHARS = 24_000
 export interface WorkspaceBrokerOptions {
   store: ProjectStore
   ai: OrioAiService
+  /** Confirms the saved credential is accepted by ORIO Cloud, not merely decryptable. */
+  isAuthorized?: () => Promise<boolean>
   /** Opens a supported file in a regular editor tab. The broker validates root membership first. */
   openPath(path: string): boolean
   onTaskChanged(task: WorkspaceTask): void
@@ -48,9 +50,10 @@ export class WorkspaceBroker {
     if (!text) throw new Error('Enter a task for the Workspace Agent.')
     if (this.active.has(projectId))
       throw new Error('A workspace task is already running for this project.')
-    if (!(await this.options.ai.ensureAuthorized()))
+    if (!(await (this.options.isAuthorized?.() ?? this.options.ai.ensureAuthorized())))
       throw new Error('Authorize ORIO Cloud before using the Workspace Agent.')
     this.projectRoot(projectId)
+    this.options.context?.activate(projectId)
     const now = new Date().toISOString()
     const task: WorkspaceTask = {
       id: randomUUID(),

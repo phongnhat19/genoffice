@@ -24,6 +24,7 @@ export function WorkspaceAgent() {
   const [context, setContext] = useState<ProjectContextStatus | null>(null)
   const [authorized, setAuthorized] = useState<boolean | null>(null)
   const [authorizing, setAuthorizing] = useState(false)
+  const [projectLoading, setProjectLoading] = useState(false)
 
   useEffect(() => {
     void window.aiOfficeWorkspace.isAuthorized().then(setAuthorized).catch(() => setAuthorized(false))
@@ -57,8 +58,20 @@ export function WorkspaceAgent() {
 
   useEffect(() => {
     if (authorized !== true) return
-    void window.aiOfficeWorkspace.list(projectId).then(setTasks)
-    void window.aiOfficeWorkspace.contextStatus(projectId).then(setContext).catch(() => setContext(null))
+    let current = true
+    setProjectLoading(true)
+    setTasks([])
+    void Promise.all([
+      window.aiOfficeWorkspace.list(projectId),
+      window.aiOfficeWorkspace.contextStatus(projectId).catch(() => null),
+    ]).then(([nextTasks, nextContext]) => {
+      if (!current) return
+      setTasks(nextTasks)
+      setContext(nextContext)
+    }).finally(() => {
+      if (current) setProjectLoading(false)
+    })
+    return () => { current = false }
   }, [authorized, projectId])
 
   // Indexing runs in the privileged main process. Poll only while it is active
@@ -91,7 +104,7 @@ export function WorkspaceAgent() {
 
   const start = async () => {
     const text = instruction.trim()
-    if (!text || running) return
+    if (!text || running || projectLoading) return
     setError('')
     try {
       const created = await window.aiOfficeWorkspace.start({ projectId, instruction: text })
@@ -116,19 +129,6 @@ export function WorkspaceAgent() {
     }
   }
 
-  const setProjectContext = async (enabled: boolean) => {
-    setError('')
-    try {
-      const next = await window.aiOfficeWorkspace.configureContext(projectId, {
-        enabled,
-        ...(enabled ? { consentVersion: 1 } : {}),
-      })
-      setContext(next)
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not update Project Context.')
-    }
-  }
-
   const contextLabel =
     context?.state === 'indexing'
       ? 'Indexing project…'
@@ -137,8 +137,8 @@ export function WorkspaceAgent() {
         : context?.state === 'error'
           ? `Index error · ${context.error ?? 'Try rebuilding the index.'}`
           : context?.state === 'needs_rebuild'
-            ? 'Project context needs an ORIO Cloud rebuild.'
-          : 'Project context is disabled'
+            ? 'Rebuilding project context with ORIO Cloud…'
+          : 'Preparing project context…'
 
   const authorize = async () => {
     setError('')
@@ -158,9 +158,13 @@ export function WorkspaceAgent() {
           <p className="workspace-eyebrow">ORIO Cloud</p>
           <h1>Authorize the Workspace Agent</h1>
           <p>Connect ORIO Cloud to use the agent. ORIO handles AI inference; this desktop app never stores a provider key.</p>
-          <button onClick={() => void authorize()} disabled={authorizing || authorized === null}>
-            {authorizing ? 'Waiting for authorization…' : 'Authorize ORIO Cloud'}
-          </button>
+          {authorized === null ? (
+            <p className="workspace-loading" aria-live="polite"><span aria-hidden="true" />Checking ORIO Cloud authorization…</p>
+          ) : (
+            <button onClick={() => void authorize()} disabled={authorizing}>
+              {authorizing ? 'Waiting for authorization…' : 'Authorize ORIO Cloud'}
+            </button>
+          )}
           {authorizing && <p className="workspace-auth-wait" aria-live="polite">Finish authorization in your browser, then return here.</p>}
           {error && <p className="workspace-error" role="alert">{error}</p>}
         </section>
@@ -181,7 +185,7 @@ export function WorkspaceAgent() {
           <select
             value={projectId}
             onChange={(event) => setProjectId(event.target.value)}
-            disabled={running}
+            disabled={running || projectLoading}
           >
             {projects.map((project) => (
               <option key={project.id} value={project.id}>
@@ -196,24 +200,13 @@ export function WorkspaceAgent() {
         </p>
         <section className="workspace-context">
           <h3>Project Context</h3>
-          <p className={`workspace-context-status ${context?.state ?? 'disabled'}`}>{contextLabel}</p>
-          {context?.enabled ? (
-            <>
-              <button className="workspace-secondary" disabled={running} onClick={() => void setProjectContext(false)}>
-                Disable context
-              </button>
-              <button className="workspace-secondary" disabled={running} onClick={() => void window.aiOfficeWorkspace.rebuildContext(projectId).then(setContext)}>
-                Rebuild index
-              </button>
-            </>
-          ) : (
-            <>
-              <p className="workspace-context-notice">Enabling sends extracted project text to ORIO Cloud to build a local cited index.</p>
-              <button disabled={running} onClick={() => void setProjectContext(true)}>
-                Enable Project Context
-              </button>
-            </>
-          )}
+          <p className={`workspace-context-status ${context?.state ?? 'disabled'}`}>
+            {context?.state === 'indexing' && <span className="workspace-loading-dot" aria-hidden="true" />}{contextLabel}
+          </p>
+          <p className="workspace-context-notice">Project Context is automatically built locally using ORIO Cloud inference.</p>
+          <button className="workspace-secondary" disabled={running} onClick={() => void window.aiOfficeWorkspace.rebuildContext(projectId).then(setContext)}>
+            Rebuild index
+          </button>
         </section>
       </section>
       <section className="workspace-agent-main">
@@ -227,7 +220,9 @@ export function WorkspaceAgent() {
         </div>
 
         <div className="workspace-transcript" aria-live="polite">
-          {!task && (
+          {projectLoading ? (
+            <p className="workspace-empty workspace-loading" aria-live="polite"><span aria-hidden="true" />Loading project…</p>
+          ) : !task && (
             <p className="workspace-empty">
               Ask the agent to compare files, research a topic, or prepare an office deliverable.
             </p>

@@ -1021,6 +1021,7 @@ function createShellWindow(): void {
   workspaceBroker = new WorkspaceBroker({
     store: projectStore,
     ai: orioAi,
+    isAuthorized: () => projectSync?.authorizationStatus() ?? Promise.resolve(false),
     context: projectContext,
     openPath: (path) => openDocumentPath(path),
     onTaskChanged: (task) => {
@@ -1683,26 +1684,29 @@ function registerWorkspaceIpc(): void {
       throw new Error('Invalid workspace approval.')
     return workspaceBroker?.decide(input.projectId, input.taskId, input.decision)
   })
-  ipcMain.handle(WORKSPACE_CHANNELS.contextStatus, (_event, projectId: unknown) => {
+  ipcMain.handle(WORKSPACE_CHANNELS.contextStatus, async (_event, projectId: unknown) => {
     if (typeof projectId !== 'string' || !projectContext) throw new Error('Invalid project.')
-    return projectContext.status(projectId)
+    if (!(await projectSync?.authorizationStatus())) throw new Error('Authorize ORIO Cloud before using Project Context.')
+    return projectContext.activate(projectId)
   })
   ipcMain.handle(WORKSPACE_CHANNELS.configureContext, async (_event, projectId: unknown, settings: unknown) => {
     if (typeof projectId !== 'string' || !settings || typeof settings !== 'object' || !projectContext)
       throw new Error('Invalid project context settings.')
-    if (!(await orioAi?.ensureAuthorized())) throw new Error('Authorize ORIO Cloud before enabling Project Context.')
+    if (!(await projectSync?.authorizationStatus())) throw new Error('Authorize ORIO Cloud before enabling Project Context.')
     return projectContext.configure(projectId, settings as import('@genoffice/project-context').ProjectContextSettings)
   })
   ipcMain.handle(WORKSPACE_CHANNELS.rebuildContext, async (_event, projectId: unknown) => {
     if (typeof projectId !== 'string' || !projectContext) throw new Error('Invalid project.')
-    if (!(await orioAi?.ensureAuthorized())) throw new Error('Authorize ORIO Cloud before rebuilding Project Context.')
+    if (!(await projectSync?.authorizationStatus())) throw new Error('Authorize ORIO Cloud before rebuilding Project Context.')
     return projectContext.rebuild(projectId)
   })
   ipcMain.handle(WORKSPACE_CHANNELS.clearContext, (_event, projectId: unknown) => {
     if (typeof projectId !== 'string' || !projectContext) throw new Error('Invalid project.')
     return projectContext.clear(projectId)
   })
-  ipcMain.handle(WORKSPACE_CHANNELS.isAuthorized, () => orioAi?.ensureAuthorized() ?? false)
+  // A decryptable cached token alone is not enough: confirm it is still an
+  // active ORIO Cloud account before the renderer can reveal the agent UI.
+  ipcMain.handle(WORKSPACE_CHANNELS.isAuthorized, () => projectSync?.authorizationStatus() ?? false)
   ipcMain.handle(WORKSPACE_CHANNELS.authorize, () => orioAi?.startAuthorization())
 }
 

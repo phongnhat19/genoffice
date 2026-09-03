@@ -839,6 +839,7 @@ export function Home() {
     kind: 'sync' | 'pull'
   } | null>(null)
   const [cloudAuthorized, setCloudAuthorized] = useState(false)
+  const [cloudAuthLoading, setCloudAuthLoading] = useState(false)
 
   const showCloudError = (error: unknown) => {
     setSyncStatus({
@@ -898,9 +899,12 @@ export function Home() {
   }
   useEffect(() => {
     if (!selectedProjectId || !window.aiOfficeProject) return
+    let current = true
+    setCloudAuthLoading(true)
     void window.aiOfficeProject
       .isCloudAuthorized()
       .then(async (authorized) => {
+        if (!current) return
         setCloudAuthorized(authorized)
         if (!authorized) {
           setCloudProjects([])
@@ -914,10 +918,13 @@ export function Home() {
         }
       })
       .catch(() => {
+        if (!current) return
         setCloudAuthorized(false)
         setCloudProjects([])
       })
-    void window.aiOfficeProject.getSyncStatus(selectedProjectId).then(setSyncStatus)
+      .finally(() => { if (current) setCloudAuthLoading(false) })
+    void window.aiOfficeProject.getSyncStatus(selectedProjectId).then((next) => { if (current) setSyncStatus(next) })
+    return () => { current = false }
   }, [selectedProjectId, projectTick])
 
   useEffect(() => {
@@ -1502,7 +1509,9 @@ export function Home() {
             <div
               className={`project-folder-path${syncStatus?.status === 'error' ? ' project-sync-error' : ''}`}
             >
-              {!cloudAuthorized
+              {cloudAuthLoading
+                ? 'Checking ORIO Cloud authorization…'
+                : !cloudAuthorized
                 ? syncStatus?.status === 'error' && syncStatus.error
                   ? syncStatus.error
                   : 'Authorize ORIO to enable private cloud sync.'
@@ -1518,7 +1527,7 @@ export function Home() {
                           ? `Last synced ${new Date(syncStatus.lastSyncedAt).toLocaleString()}`
                         : 'Not synced yet'}
             </div>
-            {cloudAuthorized && (
+            {cloudAuthorized && !cloudAuthLoading && (
               <label className="project-sync-toggle">
                 <span>Auto-sync changes</span>
                 <input
@@ -1536,7 +1545,9 @@ export function Home() {
               </label>
             )}
           </div>
-          {!cloudAuthorized ? (
+          {cloudAuthLoading ? (
+            <span className="project-auth-loading" aria-live="polite"><span aria-hidden="true" />Checking…</span>
+          ) : !cloudAuthorized ? (
             <button
               className="selection-action"
               onClick={() =>

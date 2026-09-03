@@ -14,15 +14,14 @@ function fixture(): { root: string; data: string } {
 afterEach(() => { for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }) })
 
 describe('ProjectContextService', () => {
-  it('requires consent, indexes supported files, and retrieves cited excerpts', async () => {
+  it('automatically activates, indexes supported files, and retrieves cited excerpts', async () => {
     const { root, data } = fixture()
     writeFileSync(join(root, 'brief.md'), '# Launch plan\n\nORIO ships the launch proposal in Bangkok.')
     writeFileSync(join(root, 'skip.exe'), 'not indexed')
     const service = new ProjectContextService(data, () => root, {
       embed: async (_projectId, input) => input.map((value) => [value.toLowerCase().includes('bangkok') ? 1 : 0, value.length]),
     })
-    expect(service.configure('p', { enabled: true }).enabled).toBe(false)
-    service.configure('p', { enabled: true, consentVersion: 1 })
+    service.activate('p')
     await service.rebuild('p')
     expect(service.status('p')).toMatchObject({ state: 'ready', indexedFiles: 1 })
     const result = await service.retrieve('p', 'What happens in Bangkok?')
