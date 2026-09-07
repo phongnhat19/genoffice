@@ -164,4 +164,52 @@ describe('OrioAiService', () => {
       globalThis.fetch = originalFetch
     }
   })
+
+  it('retries a terminated remote stream before it emits model output', async () => {
+    const { service: orio } = service(
+      {
+        version: 1,
+        status: 'connected',
+        credential: Buffer.from(
+          `encrypted:${JSON.stringify({
+            accessToken: 'access-token',
+            refreshToken: 'refresh-token',
+            expiresAt: Date.now() + 3_600_000,
+          })}`,
+        ).toString('base64'),
+      },
+      {
+        env: {
+          ORIO_AUTH_URL: 'http://auth.test/auth/v1',
+          ORIO_WEB_URL: 'http://orio.test',
+          ORIO_DESKTOP_OAUTH_CLIENT_ID: 'desktop-test-client',
+          ORIO_DESKTOP_OAUTH_REDIRECT_URI: 'http://127.0.0.1:1455/oauth/callback',
+        },
+      },
+    )
+    const originalFetch = globalThis.fetch
+    const endpoints: string[] = []
+    globalThis.fetch = (async (input) => {
+      endpoints.push(new URL(String(input)).pathname)
+      if (endpoints.length === 1) throw new Error('terminated')
+      return new Response('data: {"type":"done"}\n\n', {
+        headers: { 'content-type': 'text/event-stream' },
+      })
+    }) as typeof fetch
+    const request = {
+      requestId: 'request-1',
+      system: '',
+      messages: [{ role: 'user' as const, text: 'Retry this request' }],
+      remoteSurface: 'docs' as const,
+      remoteSessionId: 'local-session',
+    }
+    try {
+      await expect(
+        orio.stream(request, () => undefined, new AbortController().signal),
+      ).resolves.toBeUndefined()
+      expect(endpoints).toEqual(['/api/v1/ai/agent/start', '/api/v1/ai/agent/start'])
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
 })

@@ -28,6 +28,9 @@ type OrioStreamRequest = {
   remoteSessionId?: string | undefined
 }
 
+/** A dropped SSE socket can be retried once without replaying any model output. */
+const REMOTE_STREAM_RETRY_COUNT = 1
+
 export interface OrioAiOptions {
   path: () => string
   safeStorage: SafeStorageLike
@@ -440,48 +443,58 @@ export class OrioAiService {
               images: lastMessage?.role === 'user' ? lastMessage.images : undefined,
             }
       : request
-    try {
-      const response = await this.request(endpoint, body, signal)
-      if (!response.body) throw new Error('ORIO AI stream is unavailable.')
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-      while (true) {
-        const next = await reader.read()
-        if (next.done) break
-        buffer += decoder.decode(next.value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() ?? ''
-        for (const line of lines) {
-          if (!line.startsWith('data:')) continue
-          try {
-            const chunk = JSON.parse(line.slice(5).trim()) as {
-              type: AiStreamChunk['type'] | 'session'
-              sessionId?: string
-              requestId?: string
-              text?: string
-              toolCall?: AiStreamChunk['toolCall']
-              activity?: AiStreamChunk['activity']
-              citation?: AiStreamChunk['citation']
-              error?: string
-              errorCode?: AiStreamChunk['errorCode']
-              stopReason?: string
+    for (let attempt = 0; ; attempt += 1) {
+      let receivedPayload = false
+      try {
+        const response = await this.request(endpoint, body, signal)
+        if (!response.body) throw new Error('ORIO AI stream is unavailable.')
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+        while (true) {
+          const next = await reader.read()
+          if (next.done) break
+          buffer += decoder.decode(next.value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() ?? ''
+          for (const line of lines) {
+            if (!line.startsWith('data:')) continue
+            try {
+              const chunk = JSON.parse(line.slice(5).trim()) as {
+                type: AiStreamChunk['type'] | 'session'
+                sessionId?: string
+                requestId?: string
+                text?: string
+                toolCall?: AiStreamChunk['toolCall']
+                activity?: AiStreamChunk['activity']
+                citation?: AiStreamChunk['citation']
+                error?: string
+                errorCode?: AiStreamChunk['errorCode']
+                stopReason?: string
+              }
+              if (remote && chunk.type === 'session' && chunk.sessionId) {
+                this.remoteSessions.set(request.remoteSessionId!, chunk.sessionId)
+                continue
+              }
+              if (remote && chunk.type === 'error')
+                this.remoteSessions.delete(request.remoteSessionId!)
+              if (chunk.type !== 'ping') receivedPayload = true
+              onChunk({ ...chunk, requestId: request.requestId } as AiStreamChunk)
+            } catch {
+              /* ignore malformed keepalive */
             }
-            if (remote && chunk.type === 'session' && chunk.sessionId) {
-              this.remoteSessions.set(request.remoteSessionId!, chunk.sessionId)
-              continue
-            }
-            if (remote && chunk.type === 'error')
-              this.remoteSessions.delete(request.remoteSessionId!)
-            onChunk({ ...chunk, requestId: request.requestId } as AiStreamChunk)
-          } catch {
-            /* ignore malformed keepalive */
           }
         }
+        return
+      } catch (error) {
+        // A proxy can close an SSE response after accepting the request but before
+        // forwarding any model output. Retrying the same requestId lets ORIO Cloud
+        // deduplicate the continuation without replaying local tool calls.
+        if (remote && !signal.aborted && !receivedPayload && attempt < REMOTE_STREAM_RETRY_COUNT)
+          continue
+        if (remote) this.remoteSessions.delete(request.remoteSessionId!)
+        throw error
       }
-    } catch (error) {
-      if (remote) this.remoteSessions.delete(request.remoteSessionId!)
-      throw error
     }
   }
 }
