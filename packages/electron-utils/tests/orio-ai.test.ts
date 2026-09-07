@@ -189,8 +189,10 @@ describe('OrioAiService', () => {
     )
     const originalFetch = globalThis.fetch
     const endpoints: string[] = []
-    globalThis.fetch = (async (input) => {
+    const requestIds: string[] = []
+    globalThis.fetch = (async (input, init) => {
       endpoints.push(new URL(String(input)).pathname)
+      requestIds.push(JSON.parse(String(init?.body)).requestId)
       if (endpoints.length === 1) throw new Error('terminated')
       return new Response('data: {"type":"done"}\n\n', {
         headers: { 'content-type': 'text/event-stream' },
@@ -208,6 +210,8 @@ describe('OrioAiService', () => {
         orio.stream(request, () => undefined, new AbortController().signal),
       ).resolves.toBeUndefined()
       expect(endpoints).toEqual(['/api/v1/ai/agent/start', '/api/v1/ai/agent/start'])
+      expect(requestIds[0]).toBe(request.requestId)
+      expect(requestIds[1]).not.toBe(request.requestId)
     } finally {
       globalThis.fetch = originalFetch
     }

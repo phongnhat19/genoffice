@@ -1180,6 +1180,36 @@ function createShellWindow(): void {
   }
 }
 
+function promptForMacFileAssociation(): void {
+  if (process.platform !== 'darwin' || !shellWindow) return
+  const settingsPath = join(app.getPath('userData'), 'app-settings.json')
+  if (readAppSettings(settingsPath).orioFileAssociationPrompted === true) return
+  void dialog
+    .showMessageBox(shellWindow, {
+      type: 'question',
+      buttons: ['Show me how', 'Not now'],
+      defaultId: 0,
+      cancelId: 1,
+      title: 'Use ORIO to open Office files?',
+      message: 'Would you like ORIO to be the default app for DOCX, XLSX, and PPTX files?',
+      detail:
+        'macOS requires you to choose the default app in Finder. Select “Show me how” for the steps.',
+    })
+    .then(({ response }) => {
+      writeAppSetting(settingsPath, 'orioFileAssociationPrompted', true)
+      if (response !== 0) return
+      return dialog.showMessageBox(shellWindow!, {
+        type: 'info',
+        buttons: ['Done'],
+        title: 'Set ORIO as the default app',
+        message: 'In Finder, select a DOCX, XLSX, or PPTX file and press ⌘I.',
+        detail:
+          'Under “Open with,” select ORIO, then choose “Change All…”. Repeat for each file type.',
+      })
+    })
+    .catch(() => undefined)
+}
+
 // ---- routing: one dispatch function for every open path ----
 
 const DOCX_RE = /\.docx$/i
@@ -1997,6 +2027,7 @@ app.whenReady().then(() => {
   currentLang()
   startSheetsCaptureServer()
   createShellWindow()
+  promptForMacFileAssociation()
   // deferred to ready: labels need currentLang(), which reads app.getLocale()
   installBackToHomeItems()
   installDockMenu()

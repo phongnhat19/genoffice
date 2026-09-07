@@ -79,6 +79,7 @@ interface ChatEntry {
   undelivered?: boolean
   /** tool executions performed during this assistant turn */
   tools?: ToolActivity[]
+  mentions?: string[]
 }
 
 /** Clickable starter prompts fill the input without sending it. */
@@ -387,6 +388,9 @@ export function AiPanel({
               isError: t.isError,
               output: t.output ? t.output.slice(0, TOOL_OUTPUT_MAX_CHARS) : undefined,
             })),
+            mentions: m.attachments
+              ?.filter((attachment) => attachment.source === 'project-mention' && attachment.relativePath)
+              .map((attachment) => attachment.relativePath!),
           })),
         )
         // restore model context: follow-ups after reopening a file continue the previous conversation (only when the loop is idle with no history)
@@ -700,7 +704,7 @@ export function AiPanel({
     stickToBottomRef.current = true
     setChat((prev) => [
       ...prev,
-      { role: 'user', text: displayInstruction },
+      { role: 'user', text: displayInstruction, mentions: mentionsRef.current.map((mention) => mention.path) },
       { role: 'assistant', text: '', streaming: true },
     ])
     runStartedAtRef.current = Date.now()
@@ -978,7 +982,14 @@ export function AiPanel({
               ) : entry.role === 'assistant' ? (
                 <Markdown text={entry.text} />
               ) : (
-                entry.text
+                <>
+                  {entry.text}
+                  {entry.mentions && entry.mentions.length > 0 && (
+                    <span className="ai-msg-mentions">
+                      {entry.mentions.map((path) => <span className="ai-project-mention" key={path}>@{path}</span>)}
+                    </span>
+                  )}
+                </>
               )}
               {entry.role === 'user' && entry.undelivered && (
                 <div className="ai-msg-undelivered">{t('aiUndelivered')}</div>

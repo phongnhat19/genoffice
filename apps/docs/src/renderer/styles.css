@@ -5014,6 +5014,9 @@ body.docs-crop-active
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.ai-msg-mentions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+.ai-msg-mentions .ai-project-mention { display: inline-flex; }
 .ai-project-mention button {
   border: 0;
   padding: 0;

@@ -483,6 +483,21 @@ body.vib .home {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+.workspace-mention-chip {
+  display: inline-flex;
+  max-width: 100%;
+  margin: 2px 3px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent, #5b7cfa) 14%, transparent);
+  color: var(--accent, #3e5ac7);
+  font: 600 12px/1.4 system-ui, sans-serif;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  white-space: nowrap;
+}
 .workspace-empty {
   align-self: center;
   max-width: 440px;

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AiComposer } from '@genoffice/ui'
+import { AiComposer, ProjectMentionPicker, type ProjectMention } from '@genoffice/ui'
 import type { ProjectSummaryEntry } from '../../shared/home-api'
 import type { WorkspaceAgentApi } from '../../shared/workspace-api'
 import type { WorkspaceTask } from '@genoffice/project-store'
@@ -21,11 +21,24 @@ function rememberedProjectId(): string {
   try { return window.localStorage.getItem(LAST_PROJECT_KEY) ?? 'default' } catch { return 'default' }
 }
 
+function messageWithMentionChips(text: string): React.ReactNode {
+  const parts = text.split(/(@\[[^\]]+\])/g)
+  return parts.map((part, index) =>
+    part.startsWith('@[') && part.endsWith(']') ? (
+      <span key={index} className="workspace-mention-chip">{part.slice(2, -1)}</span>
+    ) : (
+      part
+    ),
+  )
+}
+
 export function WorkspaceAgent() {
   const [projects, setProjects] = useState<ProjectSummaryEntry[]>([])
   const [projectId, setProjectId] = useState(rememberedProjectId)
   const [tasks, setTasks] = useState<WorkspaceTask[]>([])
   const [instruction, setInstruction] = useState('')
+  const [mentionOpen, setMentionOpen] = useState(false)
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [context, setContext] = useState<ProjectContextStatus | null>(null)
   const [authorized, setAuthorized] = useState<boolean | null>(null)
@@ -108,7 +121,10 @@ export function WorkspaceAgent() {
     [authorized, projectId],
   )
 
-  const task = useMemo(() => latestTask(tasks), [tasks])
+  const task = useMemo(
+    () => tasks.find((item) => item.id === selectedTaskId) ?? latestTask(tasks),
+    [selectedTaskId, tasks],
+  )
   const running = task?.status === 'running'
 
   const start = async () => {
@@ -118,6 +134,7 @@ export function WorkspaceAgent() {
     try {
       const created = await window.aiOfficeWorkspace.start({ projectId, instruction: text })
       setInstruction('')
+      setSelectedTaskId(created.id)
       setTasks((previous) => [created, ...previous.filter((item) => item.id !== created.id)])
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not start the workspace task.')
@@ -158,6 +175,11 @@ export function WorkspaceAgent() {
       setAuthorizing(false)
       setError(cause instanceof Error ? cause.message : 'Could not start ORIO Cloud authorization.')
     }
+  }
+
+  const chooseMention = (mention: ProjectMention) => {
+    setInstruction((value) => value.replace(/@[^\s@]*$/, `@[${mention.path}] `))
+    setMentionOpen(false)
   }
 
   if (authorized !== true) {
@@ -211,6 +233,22 @@ export function WorkspaceAgent() {
           Reads stay within the selected project folder. Curated research sources are read-only and
           cited.
         </p>
+        {tasks.length > 0 && (
+          <label className="workspace-project-label">
+            Conversation
+            <select
+              value={task?.id ?? ''}
+              onChange={(event) => setSelectedTaskId(event.target.value || null)}
+              disabled={projectLoading}
+            >
+              {tasks.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.title}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <section className="workspace-context">
           <h3>Project Context</h3>
           <p className={`workspace-context-status ${context?.state ?? 'disabled'}`}>
@@ -249,7 +287,7 @@ export function WorkspaceAgent() {
                     ? 'Agent'
                     : 'System'}
               </strong>
-              <p>{message.text}</p>
+              <p>{messageWithMentionChips(message.text)}</p>
             </article>
           ))}
           {task?.error && <p className="workspace-error">{task.error}</p>}
@@ -308,7 +346,26 @@ export function WorkspaceAgent() {
             sendLabel="Run task"
             stopLabel="Stop"
             ariaLabel="Workspace Agent task instruction"
-            onChange={setInstruction}
+            onChange={(value) => {
+              setInstruction(value)
+              if (/@[^\s@]*$/.test(value)) setMentionOpen(true)
+            }}
+            onTextareaKeyDown={(event) => {
+              if (event.key === '@') setMentionOpen(true)
+              if (event.key === 'Escape' && mentionOpen) {
+                event.preventDefault()
+                setMentionOpen(false)
+              }
+            }}
+            overlay={
+              <ProjectMentionPicker
+                projectId={projectId}
+                open={mentionOpen}
+                query={instruction.match(/@([^\s@]*)$/)?.[1] ?? ''}
+                onSelect={chooseMention}
+                onClose={() => setMentionOpen(false)}
+              />
+            }
             onSend={() => void start()}
             onStop={() => void cancel()}
           />

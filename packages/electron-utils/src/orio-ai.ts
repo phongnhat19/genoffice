@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { createServer, type Server } from 'node:http'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
@@ -446,7 +446,14 @@ export class OrioAiService {
     for (let attempt = 0; ; attempt += 1) {
       let receivedPayload = false
       try {
-        const response = await this.request(endpoint, body, signal)
+        // Request IDs are unique accounting keys on ORIO Cloud. A new network
+        // attempt must therefore use a fresh server ID, while chunks remain
+        // correlated to the desktop request below.
+        const response = await this.request(
+          endpoint,
+          attempt === 0 ? body : { ...body, requestId: randomUUID() },
+          signal,
+        )
         if (!response.body) throw new Error('ORIO AI stream is unavailable.')
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
@@ -488,8 +495,8 @@ export class OrioAiService {
         return
       } catch (error) {
         // A proxy can close an SSE response after accepting the request but before
-        // forwarding any model output. Retrying the same requestId lets ORIO Cloud
-        // deduplicate the continuation without replaying local tool calls.
+        // forwarding any model output. A fresh server request ID preserves ORIO
+        // Cloud's one-request-one-accounting-record invariant.
         if (remote && !signal.aborted && !receivedPayload && attempt < REMOTE_STREAM_RETRY_COUNT)
           continue
         if (remote) this.remoteSessions.delete(request.remoteSessionId!)
