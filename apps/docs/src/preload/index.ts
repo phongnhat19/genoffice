@@ -128,6 +128,7 @@ const projectApi: ProjectApi = {
   rebindChat: (args) => ipcRenderer.invoke('project:rebindChat', args),
   // P1 extensions
   listProjects: () => ipcRenderer.invoke('project:list'),
+  chooseProjectFolder: () => ipcRenderer.invoke('project:chooseFolder'),
   createProject: (args) => ipcRenderer.invoke('project:create', args),
   renameProject: (args) => ipcRenderer.invoke('project:rename', args),
   deleteProject: (args) => ipcRenderer.invoke('project:delete', args),

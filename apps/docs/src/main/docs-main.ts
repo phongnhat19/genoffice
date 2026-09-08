@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import {
+  type Dirent,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -10,7 +11,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { copyFile, mkdir, readFile, readdir, stat, unlink } from 'node:fs/promises'
-import { basename, isAbsolute, join, relative, resolve } from 'node:path'
+import { basename, extname, isAbsolute, join, relative, resolve } from 'node:path'
 import {
   BrowserWindow,
   Menu,
@@ -2729,6 +2730,48 @@ export function registerProjectIpc(): void {
     return result.canceled ? undefined : result.filePaths[0]
   }
 
+  const importProjectExts = new Set(['docx', 'xlsx', 'xls', 'csv', 'pptx', 'pdf'])
+  const importProjectFiles = (store: ProjectStore, projectId: string, rootPath: string): void => {
+    const root = realpathSync(rootPath)
+    const seenDirs = new Set<string>()
+    const visit = (directory: string): void => {
+      let actualDirectory: string
+      let entries: Dirent[]
+      try {
+        actualDirectory = realpathSync(directory)
+        const rel = relative(root, actualDirectory)
+        if (rel.startsWith('..') || isAbsolute(rel) || seenDirs.has(actualDirectory)) return
+        seenDirs.add(actualDirectory)
+        entries = readdirSync(actualDirectory, { withFileTypes: true })
+      } catch {
+        return
+      }
+
+      for (const entry of entries) {
+        if (entry.name.startsWith('.') || entry.name === 'node_modules') continue
+        let actualPath: string
+        let fileStat: ReturnType<typeof statSync>
+        try {
+          actualPath = realpathSync(join(actualDirectory, entry.name))
+          const rel = relative(root, actualPath)
+          if (rel.startsWith('..') || isAbsolute(rel)) continue
+          fileStat = statSync(actualPath)
+        } catch {
+          continue
+        }
+        if (fileStat.isDirectory()) visit(actualPath)
+        else if (
+          fileStat.isFile() &&
+          importProjectExts.has(extname(entry.name).slice(1).toLowerCase())
+        ) {
+          store.registerProjectFile(projectId, actualPath)
+        }
+      }
+    }
+
+    visit(root)
+  }
+
   /** Create a project */
   ipcMain.handle('project:create', (_event, args: { name: string; rootPath?: string }) => {
     const store = getProjectStore()
@@ -2745,6 +2788,7 @@ export function registerProjectIpc(): void {
       }
     }
     const data = store.createProject(args.name, rootPath)
+    if (rootPath) importProjectFiles(store, data.id, rootPath)
     // returns ProjectSummary shape
     return store.listProjectsSummary().find((s) => s.id === data.id) ?? data
   })

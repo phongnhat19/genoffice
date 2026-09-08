@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { ProjectStore } from '../src/store.js'
@@ -625,6 +625,20 @@ describe('createProject', () => {
     )
   })
 
+  it('registers an existing folder file with a new project', () => {
+    const rootPath = join(tmpDir, 'rooted-project')
+    mkdirSync(rootPath)
+    const filePath = join(rootPath, 'brief.docx')
+    writeFileSync(filePath, 'doc')
+    const proj = store.createProject('Rooted Project', rootPath)
+
+    store.registerProjectFile(proj.id, filePath)
+
+    expect(store.listProjectFiles(proj.id)).toEqual([filePath])
+    expect((store as any).readIndex().fileMap[filePath]).toBe(proj.id)
+    expect(store.listProjectsSummary().find((item) => item.id === proj.id)?.fileCount).toBe(1)
+  })
+
   it('throws on an empty name', () => {
     expect(() => store.createProject('   ')).toThrow()
   })
@@ -779,7 +793,7 @@ describe('moveFileToProject', () => {
     store.appendChatMessage('default', chatId, { role: 'user', text: 'keep this chat' })
 
     const movedPath = store.moveFileToProject(sourcePath, proj.id)
-    const expectedPath = join(projectRoot, 'source.docx')
+    const expectedPath = join(realpathSync(projectRoot), 'source.docx')
 
     expect(movedPath).toBe(expectedPath)
     expect(existsSync(sourcePath)).toBe(false)

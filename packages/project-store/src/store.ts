@@ -535,7 +535,7 @@ export class ProjectStore {
       updatedAt: now,
       files: existing?.files ?? [],
       ...(rootPath ? { rootPath } : {}),
-      sync: existing?.sync,
+      ...(existing?.sync ? { sync: existing.sync } : {}),
     }
     ensureDir(this.projectDir(projectId))
     this.writeProject(project)
